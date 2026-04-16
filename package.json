@@ -1,0 +1,12 @@
+{
+  "name": "handmake-journal",
+  "version": "0.1.0",
+  "description": "Floating scrapbook journal with quick capture and canvas editing.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^37.2.0"
+  }
+}

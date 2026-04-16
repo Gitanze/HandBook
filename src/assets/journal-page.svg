@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 780" width="560" height="780">
+  <defs>
+    <!-- Grid pattern -->
+    <pattern id="grid" width="35" height="35" patternUnits="userSpaceOnUse">
+      <path d="M 35 0 L 0 0 0 35" fill="none" stroke="#d8d8d8" stroke-width="0.5"/>
+    </pattern>
+    <!-- Hole shadow -->
+    <radialGradient id="holeShadow" cx="50%" cy="50%" r="50%">
+      <stop offset="70%" stop-color="#888" stop-opacity="1"/>
+      <stop offset="85%" stop-color="#999" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#aaa" stop-opacity="0.3"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Paper background -->
+  <rect width="560" height="780" fill="#fcfcfc"/>
+
+  <!-- Grid -->
+  <rect x="30" y="10" width="520" height="760" fill="url(#grid)"/>
+
+  <!-- Outer border -->
+  <rect x="30" y="10" width="520" height="760" fill="none" stroke="#d0d0d0" stroke-width="0.8"/>
+
+  <!-- Punch holes (6 holes on left side) -->
+  <circle cx="18" cy="100" r="14" fill="url(#holeShadow)"/>
+  <circle cx="18" cy="210" r="14" fill="url(#holeShadow)"/>
+  <circle cx="18" cy="340" r="14" fill="url(#holeShadow)"/>
+  <circle cx="18" cy="490" r="14" fill="url(#holeShadow)"/>
+  <circle cx="18" cy="600" r="14" fill="url(#holeShadow)"/>
+  <circle cx="18" cy="710" r="14" fill="url(#holeShadow)"/>
+
+  <!-- Vertical text "CLOTH & PAPER" -->
+  <text x="16" y="370" font-family="Georgia, serif" font-size="9" fill="#bbb" letter-spacing="2"
+        writing-mode="vertical-rl" text-orientation="mixed" transform="rotate(180, 16, 420)">CLOTH &amp; PAPER</text>
+</svg>
