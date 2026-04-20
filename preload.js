@@ -24,5 +24,12 @@ contextBridge.exposeInMainWorld("journalApi", {
 
   // Journal persistence
   loadJournal: () => ipcRenderer.invoke("journal:load"),
-  saveJournal: (payload) => ipcRenderer.invoke("journal:save", payload)
+  saveJournal: (payload) => ipcRenderer.invoke("journal:save", payload),
+
+  // Clipboard image read (for paste from system clipboard)
+  readClipboardImage: () => ipcRenderer.invoke("clipboard:read-image"),
+
+  // Export
+  saveExportJpg: (args) => ipcRenderer.invoke("export:save-jpg", args),
+  saveExportPdf: (args) => ipcRenderer.invoke("export:save-pdf", args),
 });

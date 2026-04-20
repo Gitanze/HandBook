@@ -1,6 +1,7 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, dialog, nativeImage, screen, desktopCapturer } = require("electron");
+const { app, BrowserWindow, globalShortcut, ipcMain, dialog, nativeImage, screen, desktopCapturer, clipboard } = require("electron");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
 const STORE_FILE = "journal-state.json";
 const CAPTURE_SHORTCUT = "Shift+A";
@@ -34,7 +35,6 @@ function createMainWindow() {
     }
   });
 
-  mainWindow.setAspectRatio(3 / 4);
   mainWindow.loadFile(path.join(__dirname, "src", "index.html"));
 
   // F12 → DevTools
@@ -50,7 +50,6 @@ function createMainWindow() {
 /* ════════════════ Screenshot Capture ════════════════ */
 
 async function captureScreen() {
-  // Take screenshot BEFORE showing overlay, so we don't capture the overlay itself
   const cursorPoint = screen.getCursorScreenPoint();
   const activeDisplay = screen.getDisplayNearestPoint(cursorPoint);
   const { width, height } = activeDisplay.size;
@@ -65,7 +64,6 @@ async function captureScreen() {
       }
     });
 
-    // Find the matching display
     const source = sources.find((s) => String(s.display_id) === String(activeDisplay.id)) || sources[0];
 
     if (!source) {
@@ -111,7 +109,6 @@ function createOverlayWindow(captureData) {
   overlayWindow.loadFile(path.join(__dirname, "src", "overlay.html"));
 
   overlayWindow.webContents.once("did-finish-load", () => {
-    // Send the pre-captured screenshot data to the overlay
     overlayWindow.webContents.send("screenshot-data", captureData.dataUrl);
   });
 
@@ -125,12 +122,10 @@ async function openCaptureOverlay() {
     return;
   }
 
-  // Hide main window first so it's not in the screenshot
   if (mainWindow) {
     mainWindow.hide();
   }
 
-  // Small delay to ensure window is hidden before capture
   await new Promise((resolve) => setTimeout(resolve, 200));
 
   const captureData = await captureScreen();
@@ -234,4 +229,126 @@ ipcMain.handle("journal:load", () => loadState());
 ipcMain.handle("journal:save", (_event, payload) => {
   saveState(payload);
   return true;
+});
+
+/* ════════════════ Clipboard ════════════════ */
+
+ipcMain.handle("clipboard:read-image", () => {
+  const img = clipboard.readImage();
+  return img.isEmpty() ? null : img.toDataURL();
+});
+
+/* ════════════════ Export ════════════════ */
+
+// Decode a base64 data URL to a Buffer
+function dataUrlToBuffer(dataUrl) {
+  const base64 = dataUrl.split(",")[1];
+  return Buffer.from(base64, "base64");
+}
+
+ipcMain.handle("export:save-jpg", async (_event, { dataUrls }) => {
+  if (!dataUrls || !dataUrls.length) return false;
+
+  if (dataUrls.length === 1) {
+    // Single page: show save dialog
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: "导出 JPG",
+      defaultPath: "handmake-page.jpg",
+      filters: [{ name: "JPEG 图片", extensions: ["jpg", "jpeg"] }]
+    });
+    if (result.canceled || !result.filePath) return false;
+    fs.writeFileSync(result.filePath, dataUrlToBuffer(dataUrls[0]));
+    return true;
+  } else {
+    // Multiple pages: pick a folder, then save page_1.jpg, page_2.jpg, ...
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "选择保存文件夹（将依次保存每页为 page_N.jpg）",
+      properties: ["openDirectory", "createDirectory"]
+    });
+    if (result.canceled || !result.filePaths.length) return false;
+    const dir = result.filePaths[0];
+    dataUrls.forEach((url, i) => {
+      const filePath = path.join(dir, `page_${i + 1}.jpg`);
+      fs.writeFileSync(filePath, dataUrlToBuffer(url));
+    });
+    return true;
+  }
+});
+
+ipcMain.handle("export:save-pdf", async (_event, { dataUrls }) => {
+  if (!dataUrls || !dataUrls.length) return false;
+
+  // Show save dialog first
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "导出 PDF",
+    defaultPath: "handmake.pdf",
+    filters: [{ name: "PDF 文档", extensions: ["pdf"] }]
+  });
+  if (result.canceled || !result.filePath) return false;
+  const savePath = result.filePath;
+
+  // Build a temporary HTML file with one img per page
+  const imgTags = dataUrls.map((url) =>
+    `<div class="page"><img src="${url}" /></div>`
+  ).join("\n");
+
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: white; }
+.page {
+  width: 148mm;
+  height: 206mm;
+  overflow: hidden;
+  page-break-after: always;
+  page-break-inside: avoid;
+}
+.page img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+</style>
+</head>
+<body>${imgTags}</body>
+</html>`;
+
+  const tempPath = path.join(os.tmpdir(), `handmake-export-${Date.now()}.html`);
+  fs.writeFileSync(tempPath, html, "utf8");
+
+  // Create a hidden BrowserWindow to render the HTML
+  const printWin = new BrowserWindow({
+    show: false,
+    width: 600,
+    height: 800,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  try {
+    await printWin.loadFile(tempPath);
+
+    // Wait a moment for images to fully render
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    const pdfBuffer = await printWin.webContents.printToPDF({
+      // Page size in microns: 148mm x 206mm
+      pageSize: { width: 148000, height: 206000 },
+      marginsType: 1, // no margins
+      printBackground: true,
+      landscape: false
+    });
+
+    fs.writeFileSync(savePath, pdfBuffer);
+    return true;
+  } finally {
+    printWin.close();
+    try { fs.unlinkSync(tempPath); } catch(e) { /* ignore cleanup errors */ }
+  }
 });

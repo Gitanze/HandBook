@@ -24,35 +24,153 @@
         </div>
       </header>
 
+      <!-- Home Screen -->
+      <div id="homeView" class="home-view">
+        <div class="home-header">
+          <h2 class="home-title">我的手账本</h2>
+          <button class="tbtn home-new-btn" id="newNotebookBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            新建手账本
+          </button>
+        </div>
+        <div id="notebookGrid" class="notebook-grid"></div>
+      </div>
+
       <!-- Journal Page -->
       <main class="journal">
-        <!-- Punch tool panel -->
-        <aside class="punch-panel" id="punchPanel">
-          <button class="punch-shape" data-shape="circle" title="圆形打孔">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+        <!-- Left toolsbar: 3 group trigger buttons -->
+        <aside class="toolsbar">
+          <button class="tg-btn tg-home-btn" id="homeBtn" title="返回首页">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           </button>
-          <button class="punch-shape" data-shape="star" title="星形打孔">
-            <svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+          <div class="toolsbar-sep"></div>
+          <button class="tg-btn" id="punchGroupBtn" data-group="punch" title="打孔工具">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4" fill="currentColor" opacity=".5"/></svg>
           </button>
-          <button class="punch-shape" data-shape="heart" title="心形打孔">
-            <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          <button class="tg-btn" id="cutoutGroupBtn" data-group="cutout" title="套索 / 魔棒抠图">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
           </button>
-          <button class="punch-shape" data-shape="diamond" title="菱形打孔">
-            <svg viewBox="0 0 24 24"><polygon points="12,2 22,12 12,22 2,12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          <button class="tg-btn" id="styleGroupBtn" data-group="style" title="风格化效果">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.8H21l-5.7 4.1 2.2 6.8L12 15.7l-5.5 4 2.2-6.8L3 8.8h6.6z"/></svg>
           </button>
-          <div class="punch-size-wrap hidden" id="punchSizeWrap">
-            <input type="range" id="punchSizeSlider" min="30" max="200" value="80" orient="vertical"/>
-            <span class="punch-size-label" id="punchSizeLabel">80</span>
-          </div>
         </aside>
+
+        <!-- Floating tool panel (shows to the right of toolsbar) -->
+        <div class="tool-panel hidden" id="toolPanel">
+
+          <!-- Punch section -->
+          <div class="tp-section" id="tpPunch">
+            <p class="tp-label">打孔工具</p>
+            <button class="punch-shape" data-shape="circle" title="圆形打孔">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+            </button>
+            <button class="punch-shape" data-shape="star" title="星形打孔">
+              <svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+            </button>
+            <button class="punch-shape" data-shape="heart" title="心形打孔">
+              <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="punch-shape" data-shape="diamond" title="菱形打孔">
+              <svg viewBox="0 0 24 24"><polygon points="12,2 22,12 12,22 2,12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="punch-size-wrap hidden" id="punchSizeWrap">
+              <input type="range" id="punchSizeSlider" min="30" max="200" value="80" orient="vertical"/>
+              <span class="punch-size-label" id="punchSizeLabel">80</span>
+            </div>
+          </div>
+
+          <!-- Cutout section -->
+          <div class="tp-section hidden" id="tpCutout">
+            <p class="tp-label">抠图工具</p>
+            <button class="punch-shape" id="lassoBtn" title="套索抠图（按住拖拽绘制选区）">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3C8 3 4 6 4 10c0 3 2 5.5 5 6.5L12 21l3-4.5c3-1 5-3.5 5-6.5 0-4-4-7-8-7z"/>
+                <path d="M12 3c1.5 2 2 4 2 7" opacity=".5"/>
+              </svg>
+            </button>
+            <button class="punch-shape" id="wandBtn" title="魔棒抠图（点击选色区域）">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m15 4-1 1M4 15l1-1M4 4l16 16M9.5 9.5l5 5"/>
+                <path d="M3 6l3 3M6 3l3 3"/>
+                <path d="M15 9l6-6"/>
+              </svg>
+            </button>
+            <div class="punch-size-wrap hidden" id="wandToleranceWrap">
+              <input type="range" id="wandToleranceSlider" min="5" max="120" value="30" orient="vertical"/>
+              <span class="punch-size-label" id="wandToleranceLabel">30</span>
+            </div>
+          </div>
+
+          <!-- Style effects section -->
+          <div class="tp-section hidden" id="tpStyle">
+            <p class="tp-label">风格化</p>
+            <div class="tp-fx-grid">
+              <button class="punch-shape" id="fxGrayBtn" title="黑白">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>
+              </button>
+              <button class="punch-shape" id="fxPixelBtn" title="像素风格">
+                <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1" fill="currentColor" opacity=".5"/><rect x="13" y="3" width="8" height="8" rx="1" fill="currentColor"/><rect x="3" y="13" width="8" height="8" rx="1" fill="currentColor"/><rect x="13" y="13" width="8" height="8" rx="1" fill="currentColor" opacity=".5"/></svg>
+              </button>
+              <button class="punch-shape" id="fxPopBtn" title="波普风格">
+                <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5" fill="currentColor"/><circle cx="12" cy="6" r="2" fill="currentColor" opacity=".7"/><circle cx="18" cy="6" r="1.5" fill="currentColor" opacity=".4"/><circle cx="6" cy="12" r="2" fill="currentColor" opacity=".7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><circle cx="18" cy="12" r="2" fill="currentColor" opacity=".7"/><circle cx="6" cy="18" r="1.5" fill="currentColor" opacity=".4"/><circle cx="12" cy="18" r="2" fill="currentColor" opacity=".7"/><circle cx="18" cy="18" r="2.5" fill="currentColor"/></svg>
+              </button>
+              <button class="punch-shape" id="fxGradBtn" title="渐变映射">
+                <svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><line x1="7" y1="9" x2="7" y2="15" stroke="currentColor" stroke-width="1" opacity=".35"/><line x1="12" y1="9" x2="12" y2="15" stroke="currentColor" stroke-width="1" opacity=".65"/><line x1="17" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="1"/></svg>
+              </button>
+            </div>
+            <label class="tp-slider" title="像素块大小 (PX)">
+              <svg viewBox="0 0 24 24" width="12" height="12"><rect x="3" y="3" width="8" height="8" rx="1" fill="currentColor"/><rect x="13" y="3" width="8" height="8" rx="1" fill="currentColor" opacity=".4"/></svg>
+              <input type="range" id="pixelSizeSlider" min="4" max="40" step="2" value="10"/>
+              <span id="pixelSizeLabel">10</span>
+            </label>
+            <div class="tp-divider"></div>
+            <div class="tp-grad-presets">
+              <button class="grad-preset" data-from="#000000" data-to="#ffffff" title="暗夜" style="background:linear-gradient(to right,#000,#fff)"></button>
+              <button class="grad-preset" data-from="#1a1a2e" data-to="#f7cac9" title="暮光" style="background:linear-gradient(to right,#1a1a2e,#f7cac9)"></button>
+              <button class="grad-preset" data-from="#7b3f00" data-to="#ffe234" title="暖阳" style="background:linear-gradient(to right,#7b3f00,#ffe234)"></button>
+              <button class="grad-preset" data-from="#003333" data-to="#66ff99" title="极光" style="background:linear-gradient(to right,#003333,#66ff99)"></button>
+              <button class="grad-preset" data-from="#1a0033" data-to="#ff00ff" title="霓虹" style="background:linear-gradient(to right,#1a0033,#ff00ff)"></button>
+            </div>
+            <div class="tp-grad-custom">
+              <label class="color-pick" title="渐变起始色"><input type="color" id="gradFromColor" value="#1a1a2e"/></label>
+              <label class="color-pick" title="渐变终止色"><input type="color" id="gradToColor" value="#f7cac9"/></label>
+              <button class="ibtn" id="gradApplyBtn" title="应用自定义渐变">
+                <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </div>
+
+        </div>
 
         <div id="viewport" class="viewport">
           <div id="wrapper" class="wrapper">
             <div id="stage" class="stage">
+              <!-- Custom background layer (sits below all items) -->
+              <div id="stageBgLayer" class="stage-bg-layer">
+                <img id="stageBgImg" class="stage-bg-img" alt="" draggable="false"/>
+              </div>
+
               <div id="emptyHint" class="empty-hint">
                 <p>按 <kbd>Shift+A</kbd> 截取灵感，贴入手账</p>
               </div>
               <div id="punchCursor" class="punch-cursor hidden"></div>
+
+              <!-- Rubber-band selection rect -->
+              <div id="rubberBand" class="rubber-band hidden"></div>
+
+              <!-- Group bounding box (multi-select) -->
+              <div id="groupBox" class="group-box hidden">
+                <div class="gbh gbh-scale gbh-nw"></div>
+                <div class="gbh gbh-scale gbh-ne"></div>
+                <div class="gbh gbh-scale gbh-sw"></div>
+                <div class="gbh gbh-scale gbh-se"></div>
+                <div class="gbh gbh-rot">
+                  <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 13a9 9 0 1 1-2.636-6.364L21.5 3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+              </div>
+
+              <!-- Lasso canvas overlay -->
+              <canvas id="lassoCanvas" class="lasso-canvas hidden" width="560" height="780"></canvas>
             </div>
           </div>
         </div>
@@ -72,8 +190,16 @@
           <svg viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><line x1="9" y1="20" x2="15" y2="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="12" y1="4" x2="12" y2="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           文字
         </button>
+        <button class="tbtn" id="paperBtn" title="更换纸张背景">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          换纸
+        </button>
+        <button class="tbtn" id="exportBtn" title="导出页面">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><polyline points="7 10 12 15 17 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="15" x2="12" y2="3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          导出
+        </button>
 
-        <!-- Selected-item controls (inline, show when item selected) -->
+        <!-- Single-item controls -->
         <div id="selControls" class="sel-controls hidden">
           <span class="sep"></span>
           <button class="ibtn" id="layerDownBtn" title="下移一层">
@@ -101,6 +227,16 @@
           </button>
         </div>
 
+        <!-- Multi-select controls -->
+        <div id="multiSelControls" class="multi-sel-controls hidden">
+          <span class="sep"></span>
+          <span id="multiSelCount" class="multi-sel-count">0 个素材</span>
+          <span class="sep"></span>
+          <button class="ibtn ibtn-danger" id="multiDeleteBtn" title="删除全部选中">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
         <span class="spacer"></span>
         <nav class="page-nav">
           <button class="page-btn" id="prevPageBtn" title="上一页">
@@ -109,6 +245,9 @@
           <span class="page-label" id="pageLabel">1 / 1</span>
           <button class="page-btn" id="nextPageBtn" title="下一页">
             <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="page-btn page-btn-delete" id="deletePageBtn" title="删除当前页" disabled>
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </nav>
         <span id="saveStatus" class="save-badge">已保存</span>
@@ -120,19 +259,114 @@
       <article class="item">
         <img class="item-img" alt="" draggable="false"/>
         <div class="item-text" contenteditable="false"></div>
-        <!-- Inline controls: shown on selection -->
         <div class="item-handles">
           <div class="rh rh-nw"></div>
           <div class="rh rh-ne"></div>
           <div class="rh rh-sw"></div>
           <div class="rh rh-se"></div>
         </div>
-        <!-- Rotate handle -->
         <div class="rotate-ring" title="拖拽旋转">
           <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 13a9 9 0 1 1-2.636-6.364L21.5 3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
       </article>
     </template>
+
+    <!-- Export Modal -->
+    <div id="exportOverlay" class="export-overlay hidden"></div>
+    <div id="exportModal" class="export-modal hidden">
+      <h3 class="export-title">导出手账</h3>
+      <div class="export-section">
+        <div class="export-section-label">
+          选择页面
+          <button id="exportSelectAll" class="export-link-btn">全选</button>
+        </div>
+        <div id="exportPageList" class="export-page-list"></div>
+      </div>
+      <div class="export-section">
+        <div class="export-section-label">导出格式</div>
+        <div class="export-format-row">
+          <label class="export-format-opt">
+            <input type="radio" name="exportFormat" id="exportFormatJpg" value="jpg" checked/>
+            <span>JPG 图片</span>
+          </label>
+          <label class="export-format-opt">
+            <input type="radio" name="exportFormat" id="exportFormatPdf" value="pdf"/>
+            <span>PDF 文档</span>
+          </label>
+        </div>
+      </div>
+      <p id="exportStatus" class="export-status"></p>
+      <div class="export-actions">
+        <button id="exportCancelBtn" class="export-btn export-btn-cancel">取消</button>
+        <button id="exportDoBtn" class="export-btn export-btn-ok">导出</button>
+      </div>
+    </div>
+
+    <!-- New Notebook Modal -->
+    <div id="newNbOverlay" class="export-overlay hidden"></div>
+    <div id="newNbModal" class="export-modal hidden">
+      <h3 class="export-title">新建手账本</h3>
+      <div class="export-section">
+        <input type="text" id="newNbNameInput" class="nb-name-input" placeholder="手账本名称（如：旅行记录）" maxlength="20"/>
+      </div>
+      <div class="export-actions">
+        <button id="newNbCancelBtn" class="export-btn export-btn-cancel">取消</button>
+        <button id="newNbOkBtn" class="export-btn export-btn-ok">创建</button>
+      </div>
+    </div>
+
+    <!-- Paper / Background Modal -->
+    <div id="paperOverlay" class="export-overlay hidden"></div>
+    <div id="paperModal" class="paper-modal hidden">
+      <h3 class="export-title">更换纸张背景</h3>
+
+      <!-- Mode tabs -->
+      <div class="paper-mode-tabs">
+        <button class="paper-tab active" id="paperTabFill" data-mode="fill">矩形填充</button>
+        <button class="paper-tab" id="paperTabShape" data-mode="shape">异形纸张</button>
+      </div>
+
+      <!-- Preview canvas -->
+      <div class="paper-preview-wrap">
+        <canvas id="paperPreviewCanvas" width="280" height="390"></canvas>
+        <div class="paper-preview-hint">拖拽调整位置</div>
+      </div>
+
+      <!-- Controls -->
+      <div class="paper-controls">
+        <!-- Upload button -->
+        <button class="export-btn paper-upload-btn" id="paperUploadBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          上传图片
+        </button>
+
+        <!-- Rotation (fill mode only) -->
+        <label class="paper-ctrl-row" id="paperRotRow">
+          <span class="paper-ctrl-label">旋转</span>
+          <input type="range" id="paperRotSlider" min="-180" max="180" step="1" value="0"/>
+          <span class="paper-ctrl-val" id="paperRotVal">0°</span>
+        </label>
+
+        <!-- Scale -->
+        <label class="paper-ctrl-row">
+          <span class="paper-ctrl-label">缩放</span>
+          <input type="range" id="paperScaleSlider" min="20" max="300" step="1" value="100"/>
+          <span class="paper-ctrl-val" id="paperScaleVal">100%</span>
+        </label>
+
+        <!-- Reset -->
+        <button class="export-btn paper-reset-btn" id="paperResetBtn">重置</button>
+      </div>
+
+      <p class="paper-tip" id="paperTip">填充模式：图片将铺满页面，超出部分自动裁剪</p>
+
+      <div class="export-actions">
+        <button id="paperRemoveBtn" class="export-btn export-btn-cancel paper-remove-btn">移除背景</button>
+        <div style="flex:1"></div>
+        <button id="paperCancelBtn" class="export-btn export-btn-cancel">取消</button>
+        <button id="paperOkBtn" class="export-btn export-btn-ok">应用</button>
+      </div>
+    </div>
 
     <script src="./app.js"></script>
   </body>
