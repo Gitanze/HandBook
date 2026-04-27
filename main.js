@@ -4,7 +4,7 @@ const path = require("path");
 const os = require("os");
 
 const STORE_FILE = "journal-state.json";
-const CAPTURE_SHORTCUT = "Shift+A";
+const CAPTURE_SHORTCUT = "Shift+Alt+A";
 
 let mainWindow = null;
 let overlayWindow = null;

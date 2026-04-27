@@ -62,7 +62,7 @@ const textColorInput  = $("textColorInput");
 
 const MAX_PAGES = 10;
 /* ── Multi-notebook state ── */
-const state = { notebooks: [], activeNotebook: null, pageIdx: 0, selIds: [] };
+const state = { notebooks: [], activeNotebook: null, pageIdx: 0, selIds: [], paperTemplates: [] };
 let saveTimer = null, scale = 1;
 
 function curNotebook() {
@@ -151,6 +151,7 @@ async function save() {
     await window.journalApi.saveJournal({
       notebooks: state.notebooks,
       activeNotebook: state.activeNotebook,
+      paperTemplates: state.paperTemplates,
       canvas: { width: W, height: H }
     });
     saveLabel.textContent = "已保存";
@@ -1645,6 +1646,7 @@ async function boot() {
       // New multi-notebook format
       state.notebooks = d.notebooks;
       state.activeNotebook = d.activeNotebook || state.notebooks[0].id;
+      state.paperTemplates = Array.isArray(d.paperTemplates) ? d.paperTemplates : [];
     } else if (d && (d.pages || d.items)) {
       // Migrate old single-notebook format
       const migratedNb = {
@@ -1674,6 +1676,7 @@ async function boot() {
       });
     });
   });
+  ensurePaperTemplates();
 
   const nb = curNotebook();
   state.pageIdx = nb ? (nb.pageIdx || 0) : 0;
@@ -2342,8 +2345,11 @@ const paperRemoveBtn    = $("paperRemoveBtn");
 const paperCancelBtn    = $("paperCancelBtn");
 const paperOkBtn        = $("paperOkBtn");
 const paperTip          = $("paperTip");
+const paperTemplateList = $("paperTemplateList");
+const paperNewTemplateBtn = $("paperNewTemplateBtn");
+const paperDeleteTemplateBtn = $("paperDeleteTemplateBtn");
 
-const PW = 280, PH = 390; // preview canvas size (half of 560x780)
+const PW = paperPreviewCanvas.width, PH = paperPreviewCanvas.height;
 const PREVIEW_SCALE = PW / W; // 0.5
 
 // Working state for the modal (not yet applied)
@@ -2358,6 +2364,64 @@ let paperState = {
 };
 let paperDragging = false, paperDragStartX = 0, paperDragStartY = 0;
 let paperDragOffX = 0, paperDragOffY = 0;
+let selectedPaperTemplateId = "default-paper";
+
+function defaultPaperTemplate() {
+  return { id: "default-paper", name: "初始纸张", bg: null, locked: true };
+}
+
+function ensurePaperTemplates() {
+  const list = Array.isArray(state.paperTemplates) ? state.paperTemplates : [];
+  const defaults = list.filter(t => t.id === "default-paper");
+  state.paperTemplates = [
+    defaultPaperTemplate(),
+    ...list.filter(t => t && t.id !== "default-paper")
+  ];
+  if (defaults[0]?.name) state.paperTemplates[0].name = defaults[0].name;
+}
+
+function cloneBg(bg) {
+  return bg ? {
+    type: bg.type || "fill",
+    src: bg.src,
+    rotation: bg.rotation || 0,
+    scale: bg.scale || 1,
+    offsetX: bg.offsetX || 0,
+    offsetY: bg.offsetY || 0
+  } : null;
+}
+
+function paperStateFromBg(bg) {
+  return bg
+    ? { ...cloneBg(bg), imgW: 0, imgH: 0 }
+    : { src: null, type: "fill", rotation: 0, scale: 1, offsetX: 0, offsetY: 0, imgW: 0, imgH: 0 };
+}
+
+function bgFromPaperState() {
+  if (!paperState.src) return null;
+  return {
+    type:     paperState.type,
+    src:      paperState.src,
+    rotation: paperState.rotation,
+    scale:    paperState.scale,
+    offsetX:  paperState.offsetX,
+    offsetY:  paperState.offsetY
+  };
+}
+
+function syncPaperModeTabs() {
+  paperTabFill.classList.toggle("active",  paperState.type === "fill");
+  paperTabShape.classList.toggle("active", paperState.type === "shape");
+}
+
+async function hydratePaperStateSize() {
+  if (!paperState.src) return;
+  try {
+    const img = await loadImg(paperState.src);
+    paperState.imgW = img.naturalWidth;
+    paperState.imgH = img.naturalHeight;
+  } catch(e) {}
+}
 
 function calcDefaultScale(imgW, imgH, type) {
   if (type === "fill") return Math.max(W / imgW, H / imgH);
@@ -2376,6 +2440,54 @@ function updatePaperSliders() {
   paperScaleSlider.value  = Math.round(paperState.scale * 100);
   paperScaleVal.textContent = Math.round(paperState.scale * 100) + "%";
   paperRotRow.classList.toggle("hidden", paperState.type === "shape");
+}
+
+function renderPaperTemplates() {
+  if (!paperTemplateList) return;
+  ensurePaperTemplates();
+  paperTemplateList.innerHTML = "";
+  state.paperTemplates.forEach((tpl, idx) => {
+    const btn = document.createElement("button");
+    btn.className = "paper-template-item";
+    btn.classList.toggle("active", tpl.id === selectedPaperTemplateId);
+    btn.dataset.id = tpl.id;
+
+    const thumb = document.createElement("span");
+    thumb.className = "paper-template-thumb";
+    if (tpl.bg?.src) {
+      thumb.style.backgroundImage = `url("${tpl.bg.src}")`;
+    } else {
+      thumb.classList.add("is-default");
+    }
+
+    const name = document.createElement("span");
+    name.className = "paper-template-name";
+    name.textContent = tpl.name || `纸张 ${idx + 1}`;
+
+    btn.append(thumb, name);
+    btn.addEventListener("click", async () => {
+      selectedPaperTemplateId = tpl.id;
+      paperState = paperStateFromBg(tpl.bg);
+      await hydratePaperStateSize();
+      syncPaperModeTabs();
+      updatePaperSliders();
+      updatePaperTip();
+      renderPaperTemplates();
+      drawPaperPreview();
+    });
+    paperTemplateList.appendChild(btn);
+  });
+
+  const selected = state.paperTemplates.find(t => t.id === selectedPaperTemplateId);
+  if (paperDeleteTemplateBtn) {
+    paperDeleteTemplateBtn.disabled = !selected || selected.locked;
+  }
+}
+
+function markPaperTemplateEdited() {
+  if (!selectedPaperTemplateId || selectedPaperTemplateId === "default-paper") return;
+  selectedPaperTemplateId = null;
+  renderPaperTemplates();
 }
 
 async function drawPaperPreview() {
@@ -2413,10 +2525,15 @@ async function drawPaperPreview() {
 }
 
 function openPaperModal() {
+  ensurePaperTemplates();
   // Load current page's bg into working state
   const page = curPages()[state.pageIdx];
   if (page?.bg) {
     paperState = { ...page.bg, imgW: 0, imgH: 0 };
+    selectedPaperTemplateId = page.bgTemplateId || null;
+    if (selectedPaperTemplateId && !state.paperTemplates.some(t => t.id === selectedPaperTemplateId)) {
+      selectedPaperTemplateId = null;
+    }
     // Load natural dimensions
     if (page.bg.src) {
       loadImg(page.bg.src).then(img => {
@@ -2426,13 +2543,14 @@ function openPaperModal() {
     }
   } else {
     paperState = { src: null, type: "fill", rotation: 0, scale: 1, offsetX: 0, offsetY: 0, imgW: 0, imgH: 0 };
+    selectedPaperTemplateId = "default-paper";
   }
 
   // Sync UI
-  paperTabFill.classList.toggle("active",  paperState.type === "fill");
-  paperTabShape.classList.toggle("active", paperState.type === "shape");
+  syncPaperModeTabs();
   updatePaperSliders();
   updatePaperTip();
+  renderPaperTemplates();
 
   paperModal.classList.remove("hidden");
   paperOverlay.classList.remove("hidden");
@@ -2446,6 +2564,7 @@ function closePaperModal() {
 
 // Mode tab switching
 paperTabFill.addEventListener("click", () => {
+  markPaperTemplateEdited();
   paperState.type = "fill";
   paperTabFill.classList.add("active");
   paperTabShape.classList.remove("active");
@@ -2457,6 +2576,7 @@ paperTabFill.addEventListener("click", () => {
 });
 
 paperTabShape.addEventListener("click", () => {
+  markPaperTemplateEdited();
   paperState.type = "shape";
   paperTabShape.classList.add("active");
   paperTabFill.classList.remove("active");
@@ -2469,6 +2589,7 @@ paperTabShape.addEventListener("click", () => {
 // Upload
 paperUploadBtn.addEventListener("click", async () => {
   try {
+    markPaperTemplateEdited();
     const url = await window.journalApi.pickImage();
     if (!url) return;
     const img = await loadImg(url);
@@ -2484,8 +2605,62 @@ paperUploadBtn.addEventListener("click", async () => {
   } catch(e) { console.error("paper upload error", e); }
 });
 
+async function createPaperTemplateFromCurrent() {
+  ensurePaperTemplates();
+  if (!paperState.src) {
+    const url = await window.journalApi.pickImage();
+    if (!url) return;
+    const img = await loadImg(url);
+    paperState.src = url;
+    paperState.type = "fill";
+    paperState.imgW = img.naturalWidth;
+    paperState.imgH = img.naturalHeight;
+    paperState.rotation = 0;
+    paperState.offsetX = 0;
+    paperState.offsetY = 0;
+    paperState.scale = calcDefaultScale(img.naturalWidth, img.naturalHeight, paperState.type);
+    syncPaperModeTabs();
+    updatePaperSliders();
+    updatePaperTip();
+    drawPaperPreview();
+  }
+  const customCount = state.paperTemplates.filter(t => !t.locked).length + 1;
+  const tpl = {
+    id: uid(),
+    name: `纸张 ${customCount}`,
+    bg: bgFromPaperState(),
+    locked: false
+  };
+  state.paperTemplates.push(tpl);
+  selectedPaperTemplateId = tpl.id;
+  renderPaperTemplates();
+  dirty();
+}
+
+paperNewTemplateBtn?.addEventListener("click", async () => {
+  try {
+    await createPaperTemplateFromCurrent();
+  } catch(e) { console.error("paper template create error", e); }
+});
+
+paperDeleteTemplateBtn?.addEventListener("click", () => {
+  ensurePaperTemplates();
+  const tpl = state.paperTemplates.find(t => t.id === selectedPaperTemplateId);
+  if (!tpl || tpl.locked) return;
+  state.paperTemplates = state.paperTemplates.filter(t => t.id !== tpl.id);
+  selectedPaperTemplateId = "default-paper";
+  paperState = paperStateFromBg(null);
+  syncPaperModeTabs();
+  updatePaperSliders();
+  updatePaperTip();
+  renderPaperTemplates();
+  drawPaperPreview();
+  dirty();
+});
+
 // Rotation slider
 paperRotSlider.addEventListener("input", () => {
+  markPaperTemplateEdited();
   paperState.rotation = Number(paperRotSlider.value);
   paperRotVal.textContent = paperState.rotation + "°";
   drawPaperPreview();
@@ -2493,6 +2668,7 @@ paperRotSlider.addEventListener("input", () => {
 
 // Scale slider
 paperScaleSlider.addEventListener("input", () => {
+  markPaperTemplateEdited();
   paperState.scale = Number(paperScaleSlider.value) / 100;
   paperScaleVal.textContent = paperScaleSlider.value + "%";
   drawPaperPreview();
@@ -2500,6 +2676,7 @@ paperScaleSlider.addEventListener("input", () => {
 
 // Reset
 paperResetBtn.addEventListener("click", () => {
+  markPaperTemplateEdited();
   paperState.rotation = 0;
   paperState.offsetX  = 0;
   paperState.offsetY  = 0;
@@ -2522,6 +2699,7 @@ paperPreviewCanvas.addEventListener("mousedown", e => {
 });
 document.addEventListener("mousemove", e => {
   if (!paperDragging) return;
+  markPaperTemplateEdited();
   // Convert drag delta from preview-canvas pixels to image-coordinate pixels
   // Preview scale = PREVIEW_SCALE * paperState.scale, so divide by that
   const divisor = (paperState.scale || 1) * PREVIEW_SCALE;
@@ -2537,6 +2715,7 @@ paperRemoveBtn.addEventListener("click", () => {
   if (!pages[state.pageIdx]) return;
   pushHistory();
   pages[state.pageIdx].bg = null;
+  delete pages[state.pageIdx].bgTemplateId;
   renderStageBg(pages[state.pageIdx]);
   dirty();
   closePaperModal();
@@ -2548,18 +2727,13 @@ paperOverlay.addEventListener("click", closePaperModal);
 
 // Apply
 paperOkBtn.addEventListener("click", () => {
-  if (!paperState.src) { closePaperModal(); return; }
   const pages = curPages();
   if (!pages[state.pageIdx]) return;
   pushHistory();
-  pages[state.pageIdx].bg = {
-    type:     paperState.type,
-    src:      paperState.src,
-    rotation: paperState.rotation,
-    scale:    paperState.scale,
-    offsetX:  paperState.offsetX,
-    offsetY:  paperState.offsetY
-  };
+  const nextBg = bgFromPaperState();
+  pages[state.pageIdx].bg = nextBg;
+  if (nextBg && selectedPaperTemplateId) pages[state.pageIdx].bgTemplateId = selectedPaperTemplateId;
+  else delete pages[state.pageIdx].bgTemplateId;
   renderStageBg(pages[state.pageIdx]);
   dirty();
   closePaperModal();

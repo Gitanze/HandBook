@@ -854,20 +854,114 @@ svg { display: block; }
   position: fixed; z-index: 1100;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: 340px;
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
   background: var(--panel-bg);
   backdrop-filter: blur(18px);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
-  display: flex; flex-direction: column; gap: 14px;
+  border-radius: 12px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-areas:
+    "title title"
+    "templates tabs"
+    "templates preview"
+    "templates controls"
+    "tip tip"
+    "actions actions";
+  gap: 10px 12px;
   box-shadow: 0 12px 40px rgba(0,0,0,.5);
   color: var(--ink);
+  overflow: hidden;
 }
 .paper-modal.hidden { display: none; }
+.paper-modal .export-title {
+  grid-area: title;
+  margin-bottom: 0;
+}
+
+.paper-template-pane {
+  grid-area: templates;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,150,200,.04);
+}
+.paper-template-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; color: var(--ink);
+}
+.paper-mini-btn {
+  height: 24px; padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: rgba(255,150,200,.08);
+  color: var(--ink2);
+  font-size: 11px;
+  cursor: pointer;
+}
+.paper-mini-btn:hover:not(:disabled) {
+  background: rgba(212,82,122,.18);
+  color: var(--ink);
+}
+.paper-mini-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.paper-template-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.paper-template-item {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255,255,255,.04);
+  color: var(--ink2);
+  cursor: pointer;
+  padding: 6px;
+  display: flex; flex-direction: column; gap: 5px;
+  align-items: stretch;
+}
+.paper-template-item.active {
+  border-color: var(--gold);
+  background: rgba(212,82,122,.16);
+  color: var(--ink);
+}
+.paper-template-thumb {
+  height: 48px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,.08);
+  background-size: cover;
+  background-position: center;
+  background-color: #fcfcfc;
+}
+.paper-template-thumb.is-default {
+  background-image: url('./assets/journal-page.svg');
+}
+.paper-template-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  text-align: center;
+}
+.paper-delete-template {
+  align-self: flex-start;
+  color: rgba(220,80,100,.9);
+  background: transparent;
+  border-color: rgba(220,80,100,.3);
+}
 
 /* Mode tabs */
 .paper-mode-tabs {
+  grid-area: tabs;
   display: flex; gap: 6px;
 }
 .paper-tab {
@@ -888,6 +982,7 @@ svg { display: block; }
 
 /* Preview */
 .paper-preview-wrap {
+  grid-area: preview;
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
 }
 #paperPreviewCanvas {
@@ -904,6 +999,7 @@ svg { display: block; }
 
 /* Controls */
 .paper-controls {
+  grid-area: controls;
   display: flex; flex-direction: column; gap: 8px;
 }
 .paper-upload-btn {
@@ -938,8 +1034,13 @@ svg { display: block; }
 .paper-reset-btn:hover { color: var(--ink) !important; border-color: var(--ink2) !important; }
 
 .paper-tip {
+  grid-area: tip;
   font-size: 10px; color: var(--ink2); opacity: .75;
   margin: 0; line-height: 1.4;
+}
+.paper-modal > .export-actions {
+  grid-area: actions;
+  margin-top: 0;
 }
 
 .paper-remove-btn {
@@ -949,3 +1050,29 @@ svg { display: block; }
   font-size: 12px;
 }
 .paper-remove-btn:hover { background: rgba(220,80,100,.12) !important; }
+
+@media (max-height: 620px), (max-width: 660px) {
+  .paper-modal {
+    width: min(390px, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "title"
+      "templates"
+      "tabs"
+      "preview"
+      "controls"
+      "tip"
+      "actions";
+    overflow-y: auto;
+  }
+  .paper-template-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-height: 112px;
+  }
+  .paper-template-thumb { height: 38px; }
+  #paperPreviewCanvas {
+    width: 190px;
+    height: auto;
+  }
+}
