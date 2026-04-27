@@ -129,6 +129,10 @@ svg { display: block; }
 }
 .ibtn svg { width: 13px; height: 13px; }
 .ibtn:hover { background: rgba(255,150,200,.22); color: var(--ink); }
+.ibtn.active {
+  background: rgba(212,82,122,.22);
+  color: var(--gold);
+}
 .ibtn-danger:hover { background: rgba(220,60,80,.18); color: #e06070; }
 
 /* Selected-item controls */
@@ -152,9 +156,43 @@ svg { display: block; }
   background: var(--gold); border-radius: 50%; cursor: pointer;
 }
 
-/* Text-only controls */
+/* Tape-only controls (bgColor / bgAlpha) */
+.sel-controls .tape-only { display: none; }
+.sel-controls.show-tape .tape-only { display: flex; }
+
+/* Text-only controls (typography) */
 .sel-controls .text-only { display: none; }
 .sel-controls.show-text .text-only { display: flex; }
+
+/* Font family select */
+.text-font-select {
+  height: 22px; padding: 0 4px;
+  background: rgba(255,150,200,.08);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--ink2); font-size: 10px;
+  cursor: pointer; outline: none;
+  max-width: 60px;
+}
+.text-font-select:hover { border-color: var(--gold); color: var(--ink); }
+
+/* ± step control (fontSize / lineHeight) */
+.text-step-ctrl {
+  display: flex; align-items: center; gap: 2px;
+}
+.text-ctrl-btn {
+  width: 16px; height: 16px; display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: 3px;
+  background: rgba(255,150,200,.08); color: var(--ink2);
+  cursor: pointer; font-size: 11px; line-height: 1; padding: 0;
+  transition: all 80ms;
+}
+.text-ctrl-btn:hover { background: rgba(212,82,122,.22); color: var(--ink); }
+.text-ctrl-val {
+  font-size: 10px; color: var(--ink2);
+  min-width: 22px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
 
 .color-pick {
   display: flex; align-items: center; cursor: pointer;
@@ -228,6 +266,43 @@ svg { display: block; }
 .item-text.editing:focus {
   border-color: var(--gold);
   box-shadow: 0 0 0 2px rgba(212,82,122,.15);
+}
+
+/* Tape items with explicit tapeHeight (created via two-click tool) */
+.item[data-tape-h] .item-text {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.tape-hole {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  background: #f3ebe0;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.14);
+  transform-origin: center center;
+}
+.tape-hole-circle { border-radius: 50%; }
+.tape-hole-diamond { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.tape-hole-star {
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 92%, 50% 70%, 21% 92%, 32% 57%, 2% 35%, 39% 35%);
+}
+.tape-hole-heart {
+  clip-path: polygon(50% 86%, 18% 58%, 9% 39%, 14% 22%, 29% 14%, 43% 22%, 50% 33%, 57% 22%, 71% 14%, 86% 22%, 91% 39%, 82% 58%);
+}
+
+/* Pure text items — no background box */
+.item[data-type="text"] .item-text {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.item[data-type="text"] .item-text.editing:focus {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 0 2px rgba(212,82,122,.15) !important;
 }
 
 /* ═══ Selection outline ═══ */
@@ -438,6 +513,37 @@ svg { display: block; }
 .stage.punch-mode .item { cursor: none; }
 .stage.wand-mode { cursor: cell; }
 .stage.wand-mode .item { cursor: cell; }
+.stage.tape-mode { cursor: crosshair; }
+.stage.tape-mode .item { cursor: crosshair; }
+.stage.tape-brush-mode { cursor: copy; }
+.stage.tape-brush-mode .item { cursor: copy; }
+
+/* Tape tool preview strip */
+.tape-preview {
+  position: absolute;
+  height: 30px;
+  min-width: 0;
+  background: rgba(255,253,248,.55);
+  border: 1.5px dashed var(--gold);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 902;
+  transform-origin: left center;
+}
+.tape-preview.hidden { display: none; }
+
+/* Start-point dot indicator */
+.tape-start-dot {
+  position: absolute;
+  width: 8px; height: 8px;
+  background: var(--gold);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 903;
+  transform: translate(-50%, -50%);
+}
+.tape-start-dot.hidden { display: none; }
 
 /* ── Rubber-band selection ── */
 .rubber-band {

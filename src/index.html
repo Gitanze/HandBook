@@ -53,6 +53,13 @@
           <button class="tg-btn" id="styleGroupBtn" data-group="style" title="风格化效果">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.8H21l-5.7 4.1 2.2 6.8L12 15.7l-5.5 4 2.2-6.8L3 8.8h6.6z"/></svg>
           </button>
+          <div class="toolsbar-sep"></div>
+          <button class="tg-btn" id="tapeModeBtn" title="胶带工具（点击两点拉线）">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="6" rx="2"/><line x1="6" y1="9" x2="6" y2="15" stroke-width="1" opacity=".5"/><line x1="18" y1="9" x2="18" y2="15" stroke-width="1" opacity=".5"/></svg>
+          </button>
+          <button class="tg-btn" id="textModeBtn" title="添加文字">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+          </button>
         </aside>
 
         <!-- Floating tool panel (shows to the right of toolsbar) -->
@@ -154,6 +161,8 @@
                 <p>按 <kbd>Shift+A</kbd> 截取灵感，贴入手账</p>
               </div>
               <div id="punchCursor" class="punch-cursor hidden"></div>
+              <div id="tapePreview" class="tape-preview hidden"></div>
+              <div id="tapeStartDot" class="tape-start-dot hidden"></div>
 
               <!-- Rubber-band selection rect -->
               <div id="rubberBand" class="rubber-band hidden"></div>
@@ -186,10 +195,6 @@
           <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           导入
         </button>
-        <button class="tbtn" id="textBtn" title="添加文字">
-          <svg viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><line x1="9" y1="20" x2="15" y2="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="12" y1="4" x2="12" y2="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          文字
-        </button>
         <button class="tbtn" id="paperBtn" title="更换纸张背景">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
           换纸
@@ -213,13 +218,38 @@
             <svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
             <input id="opacitySlider" type="range" min="0.1" max="1" step="0.01" value="1"/>
           </label>
-          <span class="sep text-only" id="bgSep"></span>
-          <label class="color-pick text-only" id="bgColorWrap" title="背景色">
+          <span class="sep tape-only" id="bgSep"></span>
+          <label class="color-pick tape-only" id="bgColorWrap" title="胶带背景色">
             <input type="color" id="bgColorInput" value="#fffdf8"/>
           </label>
-          <label class="slider text-only" id="bgAlphaWrap" title="背景透明度">
+          <label class="slider tape-only" id="bgAlphaWrap" title="胶带透明度">
             <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 3l18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
             <input type="range" id="bgAlphaSlider" min="0" max="1" step="0.05" value="0.92"/>
+          </label>
+          <button class="ibtn tape-only" id="tapeStyleBrushBtn" title="胶带格式刷">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l1 5-4 4-4-4 1-5z"/><path d="M12 12v9"/><path d="M8 21h8"/><path d="M7 8h10"/></svg>
+          </button>
+          <!-- Text typography controls (text items only) -->
+          <span class="sep text-only"></span>
+          <select class="text-font-select text-only" id="textFontSelect" title="字体">
+            <option value="'Segoe UI','Microsoft YaHei',sans-serif">无衬线</option>
+            <option value="Georgia,'Times New Roman',serif">衬线体</option>
+            <option value="'SimSun',serif">宋体</option>
+            <option value="'SimHei',sans-serif">黑体</option>
+            <option value="'KaiTi','STKaiti',serif">楷体</option>
+          </select>
+          <div class="text-step-ctrl text-only" title="字号">
+            <button class="text-ctrl-btn" id="textSizeDown">−</button>
+            <span id="textSizeDisplay" class="text-ctrl-val">14</span>
+            <button class="text-ctrl-btn" id="textSizeUp">+</button>
+          </div>
+          <div class="text-step-ctrl text-only" title="行距">
+            <button class="text-ctrl-btn" id="textLhDown">−</button>
+            <span id="textLhDisplay" class="text-ctrl-val">1.6</span>
+            <button class="text-ctrl-btn" id="textLhUp">+</button>
+          </div>
+          <label class="color-pick text-only" title="文字颜色">
+            <input type="color" id="textColorInput" value="#3d2b1f"/>
           </label>
           <span class="sep"></span>
           <button class="ibtn ibtn-danger" id="deleteBtn" title="删除">

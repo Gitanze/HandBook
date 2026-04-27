@@ -13,6 +13,7 @@ const multiSelCount  = $("multiSelCount");
 const opSlider       = $("opacitySlider");
 const bgColorInput   = $("bgColorInput");
 const bgAlphaSlider  = $("bgAlphaSlider");
+const tapeStyleBrushBtn = $("tapeStyleBrushBtn");
 const saveLabel      = $("saveStatus");
 const emptyHint      = $("emptyHint");
 const pageLabel      = $("pageLabel");
@@ -44,6 +45,21 @@ const tpCutout         = $("tpCutout");
 const tpStyle          = $("tpStyle");
 const shell            = document.querySelector(".shell");
 
+/* Tape tool preview */
+const tapePreview   = $("tapePreview");
+const tapeStartDot  = $("tapeStartDot");
+const TAPE_H = 30; // tape strip thickness (px)
+
+/* Typography controls (text items) */
+const textFontSelect  = $("textFontSelect");
+const textSizeDisplay = $("textSizeDisplay");
+const textSizeDownBtn = $("textSizeDown");
+const textSizeUpBtn   = $("textSizeUp");
+const textLhDisplay   = $("textLhDisplay");
+const textLhDownBtn   = $("textLhDown");
+const textLhUpBtn     = $("textLhUp");
+const textColorInput  = $("textColorInput");
+
 const MAX_PAGES = 10;
 /* ── Multi-notebook state ── */
 const state = { notebooks: [], activeNotebook: null, pageIdx: 0, selIds: [] };
@@ -63,6 +79,8 @@ const punchSizeLabel  = $("punchSizeLabel");
 const punch = { active: false, shape: null, size: 80, rotation: 0 };
 const lasso = { active: false, drawing: false, targetItem: null, points: [] };
 const wand  = { active: false, tolerance: 30 };
+const tape  = { active: false, startPt: null };
+const tapeStyleBrush = { active: false, sample: null };
 
 /* ═══ Undo History ═══ */
 const MAX_HISTORY = 10;
@@ -181,6 +199,27 @@ function updateSelectionDOM() {
   updateGroupBox();
 }
 
+function tapeStyleFrom(item) {
+  return {
+    bgColor: item.bgColor || "#fffdf8",
+    bgAlpha: item.bgAlpha != null ? item.bgAlpha : 0.92,
+    opacity: item.opacity != null ? item.opacity : 1
+  };
+}
+
+function applyTapeStyle(item, style) {
+  item.bgColor = style.bgColor;
+  item.bgAlpha = style.bgAlpha;
+  item.opacity = style.opacity;
+}
+
+function setTapeBrushActive(active) {
+  tapeStyleBrush.active = active;
+  if (!active) tapeStyleBrush.sample = null;
+  tapeStyleBrushBtn?.classList.toggle("active", active);
+  stage.classList.toggle("tape-brush-mode", active);
+}
+
 function syncUI() {
   const count = state.selIds.length;
   if (count === 0) {
@@ -192,11 +231,19 @@ function syncUI() {
     multiSelControls.classList.add("hidden");
     if (s) {
       opSlider.value = s.opacity;
+      const isTape = s.type === "tape";
       const isText = s.type === "text";
+      controls.classList.toggle("show-tape", isTape);
       controls.classList.toggle("show-text", isText);
-      if (isText) {
+      if (isTape) {
         bgColorInput.value = s.bgColor || "#fffdf8";
         bgAlphaSlider.value = s.bgAlpha != null ? s.bgAlpha : 0.92;
+      }
+      if (isText) {
+        textFontSelect.value = s.fontFamily || "'Segoe UI','Microsoft YaHei',sans-serif";
+        textSizeDisplay.textContent = s.fontSize || 14;
+        textLhDisplay.textContent = Math.round((s.lineHeight || 1.6) * 10) / 10;
+        textColorInput.value = s.color || "#3d2b1f";
       }
     }
   } else {
@@ -206,12 +253,34 @@ function syncUI() {
   }
 }
 
+/* ═══ Text Edit Helper ═══ */
+
+function bindTextEdit(el, txt, item) {
+  txt.addEventListener("input", () => { item.text = txt.textContent; dirty(); });
+  txt.addEventListener("blur", () => {
+    txt.contentEditable = "false";
+    txt.classList.remove("editing");
+    item.text = txt.textContent;
+    dirty();
+  });
+  el.addEventListener("dblclick", e => {
+    if (e.target.closest(".rh") || e.target.closest(".rotate-ring")) return;
+    txt.contentEditable = "true";
+    txt.classList.add("editing");
+    txt.focus();
+  });
+}
+
 /* ═══ Render ═══ */
 
 function css(item, el) {
   el.style.left   = item.x+"px";
   el.style.top    = item.y+"px";
   el.style.width  = item.width+"px";
+  if (item.tapeHeight != null) {
+    el.style.height = item.tapeHeight+"px";
+    el.dataset.tapeH = "1"; // triggers CSS for height:100% on .item-text
+  }
   el.style.opacity = item.opacity;
   el.style.zIndex  = item.zIndex;
   el.style.transform = `rotate(${item.rotation}deg)`;
@@ -237,25 +306,41 @@ function render() {
     if (item.type === "image") {
       img.src = item.src;
       txt.style.display = "none";
-    } else {
+    } else if (item.type === "tape") {
       img.style.display = "none";
       txt.textContent = item.text || "";
       const bg = item.bgColor || "#fffdf8";
       const ba = item.bgAlpha != null ? item.bgAlpha : 0.92;
       txt.style.background = hexAlphaToRgba(bg, ba);
-      txt.addEventListener("input", () => { item.text = txt.textContent; dirty(); });
-      txt.addEventListener("blur", () => {
-        txt.contentEditable = "false";
-        txt.classList.remove("editing");
-        item.text = txt.textContent;
-        dirty();
+      // Override min-width/min-height so tape respects the exact item dimensions
+      if (item.tapeHeight != null) {
+        txt.style.width    = "100%";
+        txt.style.minWidth = "0";
+          txt.style.height   = "100%";
+          txt.style.minHeight = "0";
+      }
+      (item.holes || []).forEach(hole => {
+        const holeEl = document.createElement("div");
+        holeEl.className = `tape-hole tape-hole-${hole.shape || "circle"}`;
+        const sz = hole.size || punch.size;
+        holeEl.style.left = ((hole.x || 0) - sz / 2) + "px";
+        holeEl.style.top = ((hole.y || 0) - sz / 2) + "px";
+        holeEl.style.width = sz + "px";
+        holeEl.style.height = sz + "px";
+        holeEl.style.transform = `rotate(${hole.rotation || 0}deg)`;
+        el.appendChild(holeEl);
       });
-      el.addEventListener("dblclick", e => {
-        if (e.target.closest(".rh") || e.target.closest(".rotate-ring")) return;
-        txt.contentEditable = "true";
-        txt.classList.add("editing");
-        txt.focus();
-      });
+      bindTextEdit(el, txt, item);
+    } else {
+      // type === "text" — pure typographic, no background
+      img.style.display = "none";
+      el.dataset.type = "text";
+      txt.textContent = item.text || "";
+      txt.style.color = item.color || "#3d2b1f";
+      txt.style.fontFamily = item.fontFamily || "'Segoe UI','Microsoft YaHei',sans-serif";
+      txt.style.fontSize = (item.fontSize || 14) + "px";
+      txt.style.lineHeight = item.lineHeight || 1.6;
+      bindTextEdit(el, txt, item);
     }
 
     bindDrag(el, item);
@@ -263,7 +348,19 @@ function render() {
     bindRotate(el, item);
 
     el.addEventListener("mousedown", e => {
-      if (punch.active || lasso.active || wand.active) return;
+      if (tapeStyleBrush.active) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (item.type === "tape" && tapeStyleBrush.sample) {
+          pushHistory();
+          applyTapeStyle(item, tapeStyleBrush.sample);
+          render();
+          selectOne(item.id);
+          dirty();
+        }
+        return;
+      }
+      if (punch.active || lasso.active || wand.active || tape.active) return;
       if (e.target.closest(".rh") || e.target.closest(".rotate-ring")) return;
       if (e.shiftKey) {
         // Shift+click: toggle item in/out of multi-select
@@ -281,7 +378,7 @@ function render() {
 
     stage.appendChild(frag);
 
-    if (item.type === "text") {
+    if (item.type === "tape" || item.type === "text") {
       requestAnimationFrame(() => {
         const appended = stage.querySelector(`[data-id="${item.id}"] .item-text`);
         if (appended) item._domHeight = appended.offsetHeight || 60;
@@ -296,7 +393,7 @@ function render() {
 
 function bindDrag(el, item) {
   el.addEventListener("mousedown", e => {
-    if (punch.active || lasso.active || wand.active || e.button !== 0) return;
+    if (punch.active || lasso.active || wand.active || tape.active || tapeStyleBrush.active || e.button !== 0) return;
     if (e.target.closest(".rh") || e.target.closest(".rotate-ring") || e.target.closest(".item-text.editing")) return;
     e.preventDefault();
     e.stopPropagation();
@@ -358,7 +455,7 @@ function bindDrag(el, item) {
 function bindResize(el, item) {
   el.querySelectorAll(".rh").forEach(h => {
     h.addEventListener("mousedown", e => {
-      if (punch.active || e.button !== 0) return;
+      if (punch.active || tape.active || tapeStyleBrush.active || e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
       pushHistory();
@@ -374,7 +471,7 @@ function bindResize(el, item) {
         const growth = Math.abs(dx) >= Math.abs(dy)
           ? (isL ? -dx : dx)
           : (isN ? -dy : dy);
-        const nw = clamp(sw + growth, 40, W - 60);
+        const nw = clamp(sw + growth, 10, W - 60);
         item.width = nw;
         if (isL) item.x = sx + (sw - nw);
         css(item, el);
@@ -397,7 +494,7 @@ function bindRotate(el, item) {
   if (!ring) return;
 
   ring.addEventListener("mousedown", e => {
-    if (punch.active || e.button !== 0) return;
+    if (punch.active || tape.active || tapeStyleBrush.active || e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
     pushHistory();
@@ -441,15 +538,33 @@ function addImage(src) {
   dirty();
 }
 
-function addText() {
+function addTape() {
   const items = curItems();
   const w = 150;
   items.push({
-    id: uid(), type: "text", text: "",
+    id: uid(), type: "tape", text: "",
     x: Math.round((W-w)/2) + rnd(40),
     y: Math.round(H/3) + rnd(40),
     width: w, rotation: rnd(4), opacity: 1, zIndex: items.length+1,
     bgColor: "#fffdf8", bgAlpha: 0.92
+  });
+  render();
+  selectOne(items[items.length-1].id);
+  dirty();
+}
+
+function addText() {
+  const items = curItems();
+  const w = 200;
+  items.push({
+    id: uid(), type: "text", text: "",
+    x: Math.round((W-w)/2) + rnd(40),
+    y: Math.round(H/3) + rnd(40),
+    width: w, rotation: 0, opacity: 1, zIndex: items.length+1,
+    fontFamily: "'Segoe UI','Microsoft YaHei',sans-serif",
+    fontSize: 14,
+    lineHeight: 1.6,
+    color: "#3d2b1f"
   });
   render();
   selectOne(items[items.length-1].id);
@@ -778,6 +893,7 @@ function punchSvgPath(shape, size, rot) {
 }
 
 function enterPunchMode(shape) {
+  if (tapeStyleBrush.active) setTapeBrushActive(false);
   if (lasso.active) exitLassoMode();
   if (wand.active) exitWandMode();
   if (punch.active && punch.shape === shape) { exitPunchMode(); return; }
@@ -845,9 +961,86 @@ function hitTestImage(stageX, stageY) {
   return null;
 }
 
+function getTapeHeight(item) {
+  return item.tapeHeight || item._domHeight || 60;
+}
+
+function hitTestPunchTarget(stageX, stageY) {
+  const items = curItems();
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    if (it.type === "image") {
+      const el = stage.querySelector(`[data-id="${it.id}"] .item-img`);
+      if (!el) continue;
+      const ratio = el.naturalHeight / (el.naturalWidth || 1);
+      const ih = it.width * ratio;
+      const local = stageToItemLocal(stageX, stageY, it, ih);
+      if (local.x >= 0 && local.x <= it.width && local.y >= 0 && local.y <= ih) {
+        return { kind: "image", item: it, localX: local.x, localY: local.y, imgHeight: ih, ratio };
+      }
+    } else if (it.type === "tape") {
+      const ih = getTapeHeight(it);
+      const local = stageToItemLocal(stageX, stageY, it, ih);
+      if (local.x >= 0 && local.x <= it.width && local.y >= 0 && local.y <= ih) {
+        return { kind: "tape", item: it, localX: local.x, localY: local.y, tapeHeight: ih };
+      }
+    }
+  }
+  return null;
+}
+
+function drawTapeHoles(ctx, item, iw, ih) {
+  if (!item.holes?.length) return;
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "destination-out";
+  item.holes.forEach(hole => {
+    punchPath(ctx, hole.shape || "circle", (hole.x || 0) - iw / 2, (hole.y || 0) - ih / 2, hole.size || punch.size, hole.rotation || 0);
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+function drawTapeContent(ctx, item, iw, ih, includeHoles = true) {
+  ctx.fillStyle = hexAlphaToRgba(item.bgColor||"#fffdf8", item.bgAlpha!=null?item.bgAlpha:0.92);
+  ctx.fillRect(-iw/2, -ih/2, iw, ih);
+  ctx.fillStyle = "#3d2b1f";
+  ctx.font = "14px 'Segoe UI', serif";
+  ctx.textBaseline = "top";
+  const tapePad = 8, tapeMaxW = iw - tapePad*2, tapeLineH = 20;
+  wrapText(ctx, item.text||"", tapeMaxW).forEach((line, li) => {
+    ctx.fillText(line, -iw/2+tapePad, -ih/2+tapePad+li*tapeLineH);
+  });
+  if (includeHoles) drawTapeHoles(ctx, item, iw, ih);
+}
+
+function makeTapePunchPiece(item, localX, localY, tapeHeight, localRotation) {
+  const iw = item.width, ih = tapeHeight;
+  const full = document.createElement("canvas");
+  full.width = Math.ceil(iw);
+  full.height = Math.ceil(ih);
+  const fullCtx = full.getContext("2d");
+  fullCtx.translate(iw/2, ih/2);
+  drawTapeContent(fullCtx, item, iw, ih, true);
+
+  const pc = Math.ceil(punch.size);
+  const piece = document.createElement("canvas");
+  piece.width = pc;
+  piece.height = pc;
+  const pieceCtx = piece.getContext("2d");
+  punchPath(pieceCtx, punch.shape, pc/2, pc/2, punch.size, localRotation);
+  pieceCtx.clip();
+  pieceCtx.drawImage(full, -(localX - pc/2), -(localY - pc/2));
+  return piece.toDataURL("image/png");
+}
+
 async function executePunch(stageX, stageY) {
-  const hit = hitTestImage(stageX, stageY);
+  const hit = hitTestPunchTarget(stageX, stageY);
   if (!hit) return;
+  if (hit.kind === "tape") {
+    executePunchTape(hit, stageX, stageY);
+    return;
+  }
   pushHistory();
   const { item, localX, localY } = hit;
   const img = await loadImg(item.src);
@@ -886,6 +1079,29 @@ async function executePunch(stageX, stageY) {
   render(); dirty();
 }
 
+function executePunchTape(hit, stageX, stageY) {
+  const { item, localX, localY, tapeHeight } = hit;
+  pushHistory();
+  const localRotation = punch.rotation - (item.rotation || 0);
+  const pieceSrc = makeTapePunchPiece(item, localX, localY, tapeHeight, localRotation);
+  item.holes = [...(item.holes || []), {
+    shape: punch.shape,
+    x: localX,
+    y: localY,
+    size: punch.size,
+    rotation: localRotation
+  }];
+  const items = curItems();
+  const idx = items.indexOf(item);
+  items.splice(idx + 1, 0, {
+    id: uid(), type: "image", src: pieceSrc,
+    x: stageX - punch.size / 2, y: stageY - punch.size / 2,
+    width: punch.size, rotation: item.rotation || 0,
+    opacity: item.opacity != null ? item.opacity : 1, zIndex: 1
+  });
+  render(); dirty();
+}
+
 /* ═══ Lasso Tool ═══ */
 
 function stageToItemLocal(sx, sy, item, imgH) {
@@ -900,6 +1116,7 @@ function stageToItemLocal(sx, sy, item, imgH) {
 
 function enterLassoMode() {
   if (lasso.active) { exitLassoMode(); return; }
+  if (tapeStyleBrush.active) setTapeBrushActive(false);
   if (punch.active) exitPunchMode();
   if (wand.active)  exitWandMode();
   lasso.active = true;
@@ -1008,6 +1225,7 @@ async function executeLasso() {
 
 function enterWandMode() {
   if (wand.active) { exitWandMode(); return; }
+  if (tapeStyleBrush.active) setTapeBrushActive(false);
   if (punch.active) exitPunchMode();
   if (lasso.active) exitLassoMode();
   wand.active = true;
@@ -1174,18 +1392,29 @@ async function renderPageToDataUrl(pages, pageIdx) {
         ctx.rotate(item.rotation * Math.PI / 180);
         ctx.drawImage(img, -iw/2, -ih/2, iw, ih);
       } catch(e) {}
-    } else if (item.type === "text") {
-      const iw = item.width, ih = item._domHeight || 60;
+    } else if (item.type === "tape") {
+      const iw = item.width, ih = item.tapeHeight || item._domHeight || 60;
       ctx.translate(item.x + iw/2, item.y + ih/2);
       ctx.rotate(item.rotation * Math.PI / 180);
-      ctx.fillStyle = hexAlphaToRgba(item.bgColor||"#fffdf8", item.bgAlpha!=null?item.bgAlpha:0.92);
-      ctx.fillRect(-iw/2, -ih/2, iw, ih);
-      ctx.fillStyle = "#3d2b1f";
-      ctx.font = "14px 'Segoe UI', serif";
+      const tapeCanvas = document.createElement("canvas");
+      tapeCanvas.width = Math.ceil(iw);
+      tapeCanvas.height = Math.ceil(ih);
+      const tapeCtx = tapeCanvas.getContext("2d");
+      tapeCtx.translate(iw/2, ih/2);
+      drawTapeContent(tapeCtx, item, iw, ih, true);
+      ctx.drawImage(tapeCanvas, -iw/2, -ih/2, iw, ih);
+    } else if (item.type === "text") {
+      const iw = item.width, ih = item._domHeight || 60;
+      const fontSize = item.fontSize || 14;
+      const lh = Math.round(fontSize * (item.lineHeight || 1.6));
+      ctx.translate(item.x + iw/2, item.y + ih/2);
+      ctx.rotate(item.rotation * Math.PI / 180);
+      ctx.fillStyle = item.color || "#3d2b1f";
+      ctx.font = `${fontSize}px ${item.fontFamily || "'Segoe UI',sans-serif"}`;
       ctx.textBaseline = "top";
-      const pad = 8, maxW = iw - pad*2, lineH = 20;
-      wrapText(ctx, item.text||"", maxW).forEach((line, li) => {
-        ctx.fillText(line, -iw/2+pad, -ih/2+pad+li*lineH);
+      const textPad = 10, textMaxW = iw - textPad*2;
+      wrapText(ctx, item.text||"", textMaxW).forEach((line, li) => {
+        ctx.fillText(line, -iw/2+textPad, -ih/2+textPad+li*lh);
       });
     }
     ctx.restore();
@@ -1207,6 +1436,139 @@ function wrapText(ctx, text, maxWidth) {
   }
   return result.length ? result : [""];
 }
+
+/* ═══ Tape Tool ═══ */
+
+function enterTapeMode() {
+  // Exit any other active tool first
+  if (tapeStyleBrush.active) setTapeBrushActive(false);
+  if (punch.active) exitPunchMode();
+  if (lasso.active) exitLassoMode();
+  if (wand.active)  exitWandMode();
+  tape.active  = true;
+  tape.startPt = null;
+  stage.classList.add("tape-mode");
+  $("tapeModeBtn").classList.add("active");
+  tapePreview.classList.add("hidden");
+  tapeStartDot.classList.add("hidden");
+}
+
+function exitTapeMode() {
+  tape.active  = false;
+  tape.startPt = null;
+  stage.classList.remove("tape-mode");
+  $("tapeModeBtn").classList.remove("active");
+  tapePreview.classList.add("hidden");
+  tapeStartDot.classList.add("hidden");
+}
+
+function updateTapePreview(p1, cursor) {
+  if (!p1 || !cursor) { tapePreview.classList.add("hidden"); return; }
+  const dx = cursor.x - p1.x, dy = cursor.y - p1.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 4) { tapePreview.classList.add("hidden"); return; }
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  tapePreview.classList.remove("hidden");
+  tapePreview.style.left      = p1.x + "px";
+  tapePreview.style.top       = (p1.y - TAPE_H / 2) + "px";
+  tapePreview.style.width     = len + "px";
+  tapePreview.style.height    = TAPE_H + "px";
+  tapePreview.style.transform = `rotate(${angle}deg)`;
+}
+
+function placeTapeStartDot(p) {
+  if (!p) { tapeStartDot.classList.add("hidden"); return; }
+  tapeStartDot.classList.remove("hidden");
+  tapeStartDot.style.left = p.x + "px";
+  tapeStartDot.style.top  = p.y + "px";
+}
+
+function createTapeFromPoints(p1, p2) {
+  const dx = p2.x - p1.x, dy = p2.y - p1.y;
+  const len = Math.max(Math.sqrt(dx * dx + dy * dy), 2);
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  const cx = (p1.x + p2.x) / 2, cy = (p1.y + p2.y) / 2;
+  const items = curItems();
+  items.push({
+    id: uid(), type: "tape", text: "",
+    x: cx - len / 2,
+    y: cy - TAPE_H / 2,
+    width: len, tapeHeight: TAPE_H,
+    rotation: angle, opacity: 1, zIndex: items.length + 1,
+    bgColor: "#fffdf8", bgAlpha: 0.92
+  });
+  render();
+  selectOne(items[items.length - 1].id);
+  dirty();
+}
+
+/* ═══ Typography Controls ═══ */
+
+textFontSelect.addEventListener("change", () => {
+  const item = sel();
+  if (!item || item.type !== "text") return;
+  pushHistory();
+  item.fontFamily = textFontSelect.value;
+  const el = stage.querySelector(`[data-id="${item.id}"] .item-text`);
+  if (el) el.style.fontFamily = item.fontFamily;
+  dirty();
+});
+
+textSizeDownBtn.addEventListener("click", () => {
+  const item = sel();
+  if (!item || item.type !== "text") return;
+  pushHistory();
+  item.fontSize = Math.max(8, (item.fontSize || 14) - 1);
+  textSizeDisplay.textContent = item.fontSize;
+  const el = stage.querySelector(`[data-id="${item.id}"] .item-text`);
+  if (el) el.style.fontSize = item.fontSize + "px";
+  dirty();
+});
+
+textSizeUpBtn.addEventListener("click", () => {
+  const item = sel();
+  if (!item || item.type !== "text") return;
+  pushHistory();
+  item.fontSize = Math.min(72, (item.fontSize || 14) + 1);
+  textSizeDisplay.textContent = item.fontSize;
+  const el = stage.querySelector(`[data-id="${item.id}"] .item-text`);
+  if (el) el.style.fontSize = item.fontSize + "px";
+  dirty();
+});
+
+textLhDownBtn.addEventListener("click", () => {
+  const item = sel();
+  if (!item || item.type !== "text") return;
+  pushHistory();
+  item.lineHeight = Math.max(1.0, Math.round(((item.lineHeight || 1.6) - 0.1) * 10) / 10);
+  textLhDisplay.textContent = item.lineHeight;
+  const el = stage.querySelector(`[data-id="${item.id}"] .item-text`);
+  if (el) el.style.lineHeight = item.lineHeight;
+  dirty();
+});
+
+textLhUpBtn.addEventListener("click", () => {
+  const item = sel();
+  if (!item || item.type !== "text") return;
+  pushHistory();
+  item.lineHeight = Math.min(3.0, Math.round(((item.lineHeight || 1.6) + 0.1) * 10) / 10);
+  textLhDisplay.textContent = item.lineHeight;
+  const el = stage.querySelector(`[data-id="${item.id}"] .item-text`);
+  if (el) el.style.lineHeight = item.lineHeight;
+  dirty();
+});
+
+let textColorChanged = false;
+textColorInput.addEventListener("focus", () => { textColorChanged = false; });
+textColorInput.addEventListener("input", () => {
+  if (!textColorChanged) { pushHistory(); textColorChanged = true; }
+  const item = sel();
+  if (!item || item.type !== "text") return;
+  item.color = textColorInput.value;
+  const el = stage.querySelector(`[data-id="${item.id}"] .item-text`);
+  if (el) el.style.color = item.color;
+  dirty();
+});
 
 /* ═══ Export Modal Logic ═══ */
 
@@ -1302,6 +1664,17 @@ async function boot() {
     state.notebooks = [defaultNb];
     state.activeNotebook = defaultNb.id;
   }
+  // Migrate old type:"text" (tape-style) items to type:"tape"
+  state.notebooks.forEach(nb => {
+    nb.pages.forEach(page => {
+      (page.items || []).forEach(item => {
+        if (item.type === "text" && (item.bgColor || item.bgAlpha != null)) {
+          item.type = "tape";
+        }
+      });
+    });
+  });
+
   const nb = curNotebook();
   state.pageIdx = nb ? (nb.pageIdx || 0) : 0;
 
@@ -1338,7 +1711,14 @@ $("importBtn").addEventListener("click", async () => {
   } catch(e) { console.error("import err",e); }
 });
 
-$("textBtn").addEventListener("click", () => { pushHistory(); addText(); });
+$("tapeModeBtn").addEventListener("click", () => {
+  if (tape.active) { exitTapeMode(); } else { enterTapeMode(); }
+});
+$("textModeBtn").addEventListener("click", () => {
+  if (tape.active) exitTapeMode();
+  if (tapeStyleBrush.active) setTapeBrushActive(false);
+  pushHistory(); addText();
+});
 $("exportBtn").addEventListener("click", openExportModal);
 
 prevPageBtn.addEventListener("click", prevPage);
@@ -1378,7 +1758,7 @@ bgColorInput.addEventListener("focus", () => { bgColorChanged = false; });
 bgColorInput.addEventListener("input", () => {
   if (!bgColorChanged) { pushHistory(); bgColorChanged = true; }
   const item = sel();
-  if (!item || item.type !== "text") return;
+  if (!item || item.type !== "tape") return;
   item.bgColor = bgColorInput.value;
   const el = stage.querySelector(`[data-id="${item.id}"]`);
   if (el) {
@@ -1394,7 +1774,7 @@ bgAlphaSlider.addEventListener("mousedown", () => { if (!bgAlphaDragging) { push
 bgAlphaSlider.addEventListener("mouseup", () => { bgAlphaDragging = false; });
 bgAlphaSlider.addEventListener("input", () => {
   const item = sel();
-  if (!item || item.type !== "text") return;
+  if (!item || item.type !== "tape") return;
   item.bgAlpha = Number(bgAlphaSlider.value);
   const el = stage.querySelector(`[data-id="${item.id}"]`);
   if (el) {
@@ -1402,6 +1782,18 @@ bgAlphaSlider.addEventListener("input", () => {
     if (txt) txt.style.background = hexAlphaToRgba(item.bgColor||"#fffdf8", item.bgAlpha);
   }
   dirty();
+});
+
+tapeStyleBrushBtn?.addEventListener("click", () => {
+  if (tapeStyleBrush.active) { setTapeBrushActive(false); return; }
+  const item = sel();
+  if (!item || item.type !== "tape") return;
+  if (punch.active) exitPunchMode();
+  if (lasso.active) exitLassoMode();
+  if (wand.active) exitWandMode();
+  if (tape.active) exitTapeMode();
+  tapeStyleBrush.sample = tapeStyleFrom(item);
+  setTapeBrushActive(true);
 });
 
 $("deleteBtn").addEventListener("click", () => {
@@ -1463,16 +1855,20 @@ lassoCanvas.addEventListener("mouseup", e => {
 
 // Stage mouse events
 stage.addEventListener("mousemove", e => {
+  const pos = clientToStage(e.clientX, e.clientY);
   if (punch.active) {
-    const pos = clientToStage(e.clientX, e.clientY);
     punchCursor.classList.remove("hidden");
     punchCursor.style.left = pos.x + "px";
     punchCursor.style.top  = pos.y + "px";
+  }
+  if (tape.active && tape.startPt) {
+    updateTapePreview(tape.startPt, pos);
   }
 });
 
 stage.addEventListener("mouseleave", () => {
   if (punch.active) punchCursor.classList.add("hidden");
+  if (tape.active)  tapePreview.classList.add("hidden");
 });
 
 stage.addEventListener("wheel", e => {
@@ -1485,6 +1881,11 @@ stage.addEventListener("wheel", e => {
 
 stage.addEventListener("mousedown", e => {
   if (e.button !== 0) return;
+
+  if (tapeStyleBrush.active) {
+    e.preventDefault(); e.stopPropagation();
+    return;
+  }
 
   if (punch.active) {
     e.preventDefault(); e.stopPropagation();
@@ -1502,6 +1903,29 @@ stage.addEventListener("mousedown", e => {
   }
 
   if (lasso.active) return; // handled by lassoCanvas
+
+  if (tape.active) {
+    e.preventDefault(); e.stopPropagation();
+    const pos = clientToStage(e.clientX, e.clientY);
+    if (!tape.startPt) {
+      // First click — set start point
+      tape.startPt = pos;
+      placeTapeStartDot(pos);
+    } else {
+      // Second click — create tape segment
+      pushHistory();
+      createTapeFromPoints(tape.startPt, pos);
+      if (e.shiftKey) {
+        // Shift: chain next segment from this point
+        tape.startPt = pos;
+        placeTapeStartDot(pos);
+        tapePreview.classList.add("hidden");
+      } else {
+        exitTapeMode();
+      }
+    }
+    return;
+  }
 
   // Normal: rubber-band on empty stage / hint area
   if (e.target === stage || e.target.closest(".empty-hint")) {
@@ -1523,6 +1947,8 @@ document.addEventListener("keydown", e => {
     e.preventDefault(); pasteItem(); return;
   }
   if (e.key === "Escape") {
+    if (tapeStyleBrush.active) { setTapeBrushActive(false); return; }
+    if (tape.active)  { exitTapeMode();  return; }
     if (lasso.active) { exitLassoMode(); return; }
     if (wand.active)  { exitWandMode();  return; }
     if (punch.active) { exitPunchMode(); return; }
