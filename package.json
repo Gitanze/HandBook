@@ -18,12 +18,14 @@
     "files": [
       "main.js",
       "preload.js",
+      "icon/**/*",
       "src/**/*",
       "node_modules/**/*",
       "!node_modules/electron-builder/**/*",
       "!dist/**/*"
     ],
     "win": {
+      "icon": "icon/app-icon.ico",
       "target": [
         {
           "target": "portable",
