@@ -44,6 +44,14 @@ const tpPunch          = $("tpPunch");
 const tpCutout         = $("tpCutout");
 const tpStyle          = $("tpStyle");
 const shell            = document.querySelector(".shell");
+const aiImageBtn       = $("aiImageBtn");
+const aiImageOverlay   = $("aiImageOverlay");
+const aiImageModal     = $("aiImageModal");
+const aiPromptInput    = $("aiPromptInput");
+const aiSizeSelect     = $("aiSizeSelect");
+const aiImageStatus    = $("aiImageStatus");
+const aiImageCancelBtn = $("aiImageCancelBtn");
+const aiImageGenerateBtn = $("aiImageGenerateBtn");
 
 /* Tape tool preview */
 const tapePreview   = $("tapePreview");
@@ -1573,6 +1581,49 @@ textColorInput.addEventListener("input", () => {
 
 /* ═══ Export Modal Logic ═══ */
 
+function openAiImageModal() {
+  aiImageStatus.textContent = "";
+  aiImageModal.classList.remove("hidden");
+  aiImageOverlay.classList.remove("hidden");
+  setTimeout(() => aiPromptInput.focus(), 0);
+}
+
+function closeAiImageModal() {
+  if (aiImageGenerateBtn.disabled) return;
+  aiImageModal.classList.add("hidden");
+  aiImageOverlay.classList.add("hidden");
+}
+
+async function generateAiImage() {
+  const prompt = aiPromptInput.value.trim();
+  if (!prompt) {
+    aiImageStatus.textContent = "先写一点提示词";
+    aiPromptInput.focus();
+    return;
+  }
+
+  aiImageGenerateBtn.disabled = true;
+  aiImageCancelBtn.disabled = true;
+  aiImageStatus.textContent = "生成中...";
+
+  try {
+    const imageDataUrl = await window.journalApi.generateImage({
+      prompt,
+      size: aiSizeSelect.value
+    });
+    if (!imageDataUrl) throw new Error("No image returned");
+    pushHistory();
+    addImage(imageDataUrl);
+    aiImageStatus.textContent = "已添加到画布";
+    setTimeout(closeAiImageModal, 450);
+  } catch(e) {
+    aiImageStatus.textContent = e.message || "生成失败";
+  } finally {
+    aiImageGenerateBtn.disabled = false;
+    aiImageCancelBtn.disabled = false;
+  }
+}
+
 const exportModal    = $("exportModal");
 const exportOverlay  = $("exportOverlay");
 const exportPageList = $("exportPageList");
@@ -1712,6 +1763,16 @@ $("importBtn").addEventListener("click", async () => {
     const url = await window.journalApi.pickImage();
     if (url) { pushHistory(); addImage(url); }
   } catch(e) { console.error("import err",e); }
+});
+
+aiImageBtn.addEventListener("click", openAiImageModal);
+aiImageOverlay.addEventListener("click", closeAiImageModal);
+aiImageCancelBtn.addEventListener("click", closeAiImageModal);
+aiImageGenerateBtn.addEventListener("click", generateAiImage);
+aiPromptInput.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+    generateAiImage();
+  }
 });
 
 $("tapeModeBtn").addEventListener("click", () => {

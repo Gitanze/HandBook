@@ -29,6 +29,9 @@ contextBridge.exposeInMainWorld("journalApi", {
   // Clipboard image read (for paste from system clipboard)
   readClipboardImage: () => ipcRenderer.invoke("clipboard:read-image"),
 
+  // AI image generation
+  generateImage: (args) => ipcRenderer.invoke("ai:generate-image", args),
+
   // Export
   saveExportJpg: (args) => ipcRenderer.invoke("export:save-jpg", args),
   saveExportPdf: (args) => ipcRenderer.invoke("export:save-pdf", args),

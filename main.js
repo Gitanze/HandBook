@@ -5,6 +5,8 @@ const os = require("os");
 
 const STORE_FILE = "journal-state.json";
 const CAPTURE_SHORTCUT = "Shift+Alt+A";
+const DEFAULT_DOUBAO_IMAGE_MODEL = "doubao-seedream-4-0-250828";
+const DEFAULT_DOUBAO_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 
 let mainWindow = null;
 let overlayWindow = null;
@@ -157,6 +159,82 @@ function saveState(payload) {
   fs.writeFileSync(getStorePath(), JSON.stringify(payload, null, 2), "utf8");
 }
 
+function getDoubaoConfig() {
+  const apiKey = process.env.DOUBAO_API_KEY || process.env.ARK_API_KEY || process.env.VOLCENGINE_API_KEY;
+  const baseUrl = (process.env.DOUBAO_BASE_URL || process.env.ARK_BASE_URL || DEFAULT_DOUBAO_BASE_URL).replace(/\/$/, "");
+  const model = process.env.DOUBAO_IMAGE_MODEL || DEFAULT_DOUBAO_IMAGE_MODEL;
+  return { apiKey, baseUrl, model };
+}
+
+function normalizeBase64Image(value) {
+  if (!value) return null;
+  if (value.startsWith("data:image/")) return value;
+  return `data:image/png;base64,${value}`;
+}
+
+async function fetchImageAsDataUrl(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Image download failed (${response.status})`);
+  }
+  const contentType = response.headers.get("content-type") || "image/png";
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return `data:${contentType};base64,${buffer.toString("base64")}`;
+}
+
+async function generateDoubaoImage({ prompt, size = "1024x1024" }) {
+  const cleanPrompt = String(prompt || "").trim();
+  if (!cleanPrompt) throw new Error("Prompt is required");
+
+  const { apiKey, baseUrl, model } = getDoubaoConfig();
+  if (!apiKey) {
+    throw new Error("Missing DOUBAO_API_KEY or ARK_API_KEY environment variable");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 180000);
+
+  try {
+    const response = await fetch(`${baseUrl}/images/generations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        prompt: cleanPrompt,
+        size,
+        response_format: "b64_json",
+        watermark: false
+      }),
+      signal: controller.signal
+    });
+
+    const text = await response.text();
+    let payload = null;
+    try { payload = text ? JSON.parse(text) : null; } catch { /* keep raw text for error below */ }
+
+    if (!response.ok) {
+      const message = payload?.error?.message || payload?.message || text || `Request failed (${response.status})`;
+      throw new Error(message);
+    }
+
+    const first = payload?.data?.[0] || payload?.data?.images?.[0] || payload?.result?.data?.[0];
+    const dataUrl = normalizeBase64Image(first?.b64_json || first?.base64 || first?.image_base64);
+    if (dataUrl) return dataUrl;
+
+    const imageUrl = first?.url || first?.image_url || first;
+    if (typeof imageUrl === "string" && /^https?:\/\//i.test(imageUrl)) {
+      return await fetchImageAsDataUrl(imageUrl);
+    }
+
+    throw new Error("No image returned from Doubao");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /* ════════════════ App Lifecycle ════════════════ */
 
 app.whenReady().then(() => {
@@ -239,6 +317,10 @@ ipcMain.handle("clipboard:read-image", () => {
 });
 
 /* ════════════════ Export ════════════════ */
+
+ipcMain.handle("ai:generate-image", async (_event, args) => {
+  return await generateDoubaoImage(args || {});
+});
 
 // Decode a base64 data URL to a Buffer
 function dataUrlToBuffer(dataUrl) {

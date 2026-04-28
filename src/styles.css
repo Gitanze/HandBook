@@ -702,6 +702,35 @@ svg { display: block; }
 .export-btn-ok { background: var(--gold); color: #fff; }
 .export-btn-ok:hover { opacity: .85; }
 
+.ai-image-modal {
+  width: 340px;
+}
+.ai-prompt-input,
+.ai-size-select {
+  width: 100%;
+  color: var(--ink);
+  background: rgba(255,150,200,.08);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  outline: none;
+}
+.ai-prompt-input {
+  min-height: 104px;
+  resize: none;
+  padding: 10px;
+  line-height: 1.45;
+}
+.ai-size-select {
+  height: 32px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+.ai-prompt-input:focus,
+.ai-size-select:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(212,82,122,.16);
+}
+
 /* ═══ View Switching ═══ */
 .shell.at-home .journal,
 .shell.at-home .bottombar { display: none; }
