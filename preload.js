@@ -32,6 +32,10 @@ contextBridge.exposeInMainWorld("journalApi", {
   // AI image generation
   generateImage: (args) => ipcRenderer.invoke("ai:generate-image", args),
 
+  // User config (API key etc.)
+  getConfig: () => ipcRenderer.invoke("config:get"),
+  setConfig: (payload) => ipcRenderer.invoke("config:set", payload),
+
   // Export
   saveExportJpg: (args) => ipcRenderer.invoke("export:save-jpg", args),
   saveExportPdf: (args) => ipcRenderer.invoke("export:save-pdf", args),

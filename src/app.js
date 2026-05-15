@@ -44,14 +44,44 @@ const tpPunch          = $("tpPunch");
 const tpCutout         = $("tpCutout");
 const tpStyle          = $("tpStyle");
 const shell            = document.querySelector(".shell");
-const aiImageBtn       = $("aiImageBtn");
-const aiImageOverlay   = $("aiImageOverlay");
-const aiImageModal     = $("aiImageModal");
-const aiPromptInput    = $("aiPromptInput");
-const aiSizeSelect     = $("aiSizeSelect");
-const aiImageStatus    = $("aiImageStatus");
-const aiImageCancelBtn = $("aiImageCancelBtn");
-const aiImageGenerateBtn = $("aiImageGenerateBtn");
+const aiImageBtn           = $("aiImageBtn");
+const aiImageOverlay       = $("aiImageOverlay");
+const aiImageModal         = $("aiImageModal");
+const aiImageTitle         = $("aiImageTitle");
+const aiPromptInput        = $("aiPromptInput");
+const aiSizeSelect         = $("aiSizeSelect");
+const aiImageStatus        = $("aiImageStatus");
+const aiImageCancelBtn     = $("aiImageCancelBtn");
+const aiImageGenerateBtn   = $("aiImageGenerateBtn");
+const aiRedrawBtn          = $("aiRedrawBtn");
+const aiSourceSection      = $("aiSourceSection");
+const aiSourceThumb        = $("aiSourceThumb");
+const aiSourceClearBtn     = $("aiSourceClearBtn");
+const aiStepMode           = $("aiStepMode");
+const aiStepForm           = $("aiStepForm");
+const aiModeText           = $("aiModeText");
+const aiModeImg            = $("aiModeImg");
+const aiModeSelectCancelBtn = $("aiModeSelectCancelBtn");
+const aiBackBtn            = $("aiBackBtn");
+const aiSourceUploadBtn    = $("aiSourceUploadBtn");
+const aiSourceFileInput    = $("aiSourceFileInput");
+const aiJournalGrid        = $("aiJournalGrid");
+const aiJournalPicker      = $("aiJournalPicker");
+const aiSourcePreviewWrap  = $("aiSourcePreviewWrap");
+
+const settingsBtn          = $("settingsBtn");
+const settingsOverlay      = $("settingsOverlay");
+const settingsModal        = $("settingsModal");
+const apiKeyInput          = $("apiKeyInput");
+const apiKeyToggleBtn      = $("apiKeyToggleBtn");
+const baseUrlInput         = $("baseUrlInput");
+const modelInput           = $("modelInput");
+const settingsStatus       = $("settingsStatus");
+const settingsCancelBtn    = $("settingsCancelBtn");
+const settingsSaveBtn      = $("settingsSaveBtn");
+
+let aiSourceImage = null;
+let aiCurrentMode = "text";
 
 /* Tape tool preview */
 const tapePreview   = $("tapePreview");
@@ -242,8 +272,10 @@ function syncUI() {
       opSlider.value = s.opacity;
       const isTape = s.type === "tape";
       const isText = s.type === "text";
+      const isImage = s.type === "image";
       controls.classList.toggle("show-tape", isTape);
       controls.classList.toggle("show-text", isText);
+      controls.classList.toggle("show-image", isImage);
       if (isTape) {
         bgColorInput.value = s.bgColor || "#fffdf8";
         bgAlphaSlider.value = s.bgAlpha != null ? s.bgAlpha : 0.92;
@@ -1581,20 +1613,92 @@ textColorInput.addEventListener("input", () => {
 
 /* ═══ Export Modal Logic ═══ */
 
-function openAiImageModal() {
+function showAiStep(step) {
+  aiStepMode.classList.toggle("hidden", step !== "mode");
+  aiStepForm.classList.toggle("hidden", step !== "form");
+}
+
+function setAiSourceImage(src) {
+  aiSourceImage = src || null;
+  if (aiSourceImage) {
+    aiSourceThumb.src = aiSourceImage;
+    aiSourcePreviewWrap.classList.remove("hidden");
+    aiSizeSelect.value = "adaptive";
+  } else {
+    aiSourceThumb.removeAttribute("src");
+    aiSourcePreviewWrap.classList.add("hidden");
+    if (aiSizeSelect.value === "adaptive") aiSizeSelect.value = "1024x1024";
+  }
+  document.querySelectorAll(".ai-journal-thumb").forEach(t =>
+    t.classList.toggle("selected", !!aiSourceImage && t.dataset.src === aiSourceImage)
+  );
+}
+
+function populateAiJournalGrid() {
+  aiJournalGrid.innerHTML = "";
+  const images = curItems().filter(it => it.type === "image" && it.src);
+  if (!images.length) { aiJournalPicker.classList.add("hidden"); return; }
+  aiJournalPicker.classList.remove("hidden");
+  images.forEach(it => {
+    const img = document.createElement("img");
+    img.className = "ai-journal-thumb";
+    img.src = it.src;
+    img.dataset.src = it.src;
+    if (aiSourceImage === it.src) img.classList.add("selected");
+    img.addEventListener("click", () =>
+      setAiSourceImage(aiSourceImage === it.src ? null : it.src)
+    );
+    aiJournalGrid.appendChild(img);
+  });
+}
+
+function enterAiMode(mode, sourceSrc = null) {
+  aiCurrentMode = mode;
+  aiImageStatus.textContent = "";
+  aiPromptInput.value = "";
+  if (mode === "text") {
+    aiImageTitle.textContent = "文生图";
+    aiPromptInput.placeholder = "描述你想生成的图片";
+    aiSourceSection.classList.add("hidden");
+    if (aiSizeSelect.value === "adaptive") aiSizeSelect.value = "1024x1024";
+  } else {
+    aiImageTitle.textContent = "图生图";
+    aiPromptInput.placeholder = "描述想要的风格或改动，例如：转换为卡通风格";
+    aiSourceSection.classList.remove("hidden");
+    setAiSourceImage(sourceSrc || null);
+    populateAiJournalGrid();
+  }
+  showAiStep("form");
+  setTimeout(() => aiPromptInput.focus(), 0);
+}
+
+function openAiImageModal(sourceSrc = null) {
   aiImageStatus.textContent = "";
   aiImageModal.classList.remove("hidden");
   aiImageOverlay.classList.remove("hidden");
-  setTimeout(() => aiPromptInput.focus(), 0);
+  if (sourceSrc) {
+    enterAiMode("img", sourceSrc);
+  } else {
+    showAiStep("mode");
+  }
 }
 
 function closeAiImageModal() {
   if (aiImageGenerateBtn.disabled) return;
   aiImageModal.classList.add("hidden");
   aiImageOverlay.classList.add("hidden");
+  aiSourceImage = null;
+  aiSourceThumb.removeAttribute("src");
+  aiSourcePreviewWrap.classList.add("hidden");
+  aiSourceSection.classList.add("hidden");
+  showAiStep("mode");
 }
 
 async function generateAiImage() {
+  if (aiCurrentMode === "img" && !aiSourceImage) {
+    aiImageStatus.textContent = "请先选择参考图片";
+    return;
+  }
   const prompt = aiPromptInput.value.trim();
   if (!prompt) {
     aiImageStatus.textContent = "先写一点提示词";
@@ -1604,13 +1708,12 @@ async function generateAiImage() {
 
   aiImageGenerateBtn.disabled = true;
   aiImageCancelBtn.disabled = true;
-  aiImageStatus.textContent = "生成中...";
+  aiImageStatus.textContent = aiSourceImage ? "重绘中..." : "生成中...";
 
   try {
-    const imageDataUrl = await window.journalApi.generateImage({
-      prompt,
-      size: aiSizeSelect.value
-    });
+    const args = { prompt, size: aiSizeSelect.value };
+    if (aiSourceImage) args.image = aiSourceImage;
+    const imageDataUrl = await window.journalApi.generateImage(args);
     if (!imageDataUrl) throw new Error("No image returned");
     pushHistory();
     addImage(imageDataUrl);
@@ -1621,6 +1724,82 @@ async function generateAiImage() {
   } finally {
     aiImageGenerateBtn.disabled = false;
     aiImageCancelBtn.disabled = false;
+  }
+}
+
+/* ═══ Settings (API Key) ═══ */
+
+const API_KEY_MASK = "••••••••••••••••";
+let settingsLoadedKey = "";
+
+async function openSettingsModal() {
+  settingsStatus.textContent = "";
+  try {
+    const cfg = await window.journalApi.getConfig();
+    settingsLoadedKey = cfg.apiKey || "";
+    apiKeyInput.value = settingsLoadedKey ? API_KEY_MASK : "";
+    apiKeyInput.type = "password";
+    baseUrlInput.value = cfg.baseUrl || "";
+    baseUrlInput.placeholder = cfg.defaults?.baseUrl || "留空使用默认";
+    modelInput.value = cfg.model || "";
+    modelInput.placeholder = cfg.defaults?.model || "留空使用默认";
+  } catch(e) {
+    settingsStatus.textContent = "读取配置失败：" + e.message;
+  }
+  settingsModal.classList.remove("hidden");
+  settingsOverlay.classList.remove("hidden");
+  setTimeout(() => apiKeyInput.focus(), 0);
+}
+
+function closeSettingsModal() {
+  if (settingsSaveBtn.disabled) return;
+  settingsModal.classList.add("hidden");
+  settingsOverlay.classList.add("hidden");
+  apiKeyInput.value = "";
+  settingsLoadedKey = "";
+  apiKeyInput.type = "password";
+}
+
+function toggleApiKeyVisible() {
+  apiKeyInput.type = apiKeyInput.type === "password" ? "text" : "password";
+}
+
+async function saveSettings() {
+  const inputVal = apiKeyInput.value;
+  // If the user didn't touch the masked value, keep the existing key
+  const apiKey = (inputVal === API_KEY_MASK) ? settingsLoadedKey : inputVal;
+
+  settingsSaveBtn.disabled = true;
+  settingsCancelBtn.disabled = true;
+  settingsStatus.textContent = "保存中...";
+  try {
+    await window.journalApi.setConfig({
+      apiKey,
+      baseUrl: baseUrlInput.value,
+      model: modelInput.value
+    });
+    settingsStatus.textContent = "已保存";
+    setTimeout(closeSettingsModal, 350);
+  } catch(e) {
+    settingsStatus.textContent = "保存失败：" + (e.message || e);
+  } finally {
+    settingsSaveBtn.disabled = false;
+    settingsCancelBtn.disabled = false;
+  }
+}
+
+/* If user clicks AI before configuring a key, redirect them to settings */
+async function ensureApiKeyOrGuide() {
+  try {
+    const cfg = await window.journalApi.getConfig();
+    if (!cfg.hasKey) {
+      await openSettingsModal();
+      settingsStatus.textContent = "首次使用 AI 前请先填入 API Key";
+      return false;
+    }
+    return true;
+  } catch {
+    return true; // don't block on transient errors
   }
 }
 
@@ -1765,10 +1944,44 @@ $("importBtn").addEventListener("click", async () => {
   } catch(e) { console.error("import err",e); }
 });
 
-aiImageBtn.addEventListener("click", openAiImageModal);
+aiImageBtn.addEventListener("click", async () => {
+  if (!(await ensureApiKeyOrGuide())) return;
+  openAiImageModal();
+});
 aiImageOverlay.addEventListener("click", closeAiImageModal);
 aiImageCancelBtn.addEventListener("click", closeAiImageModal);
+aiModeSelectCancelBtn.addEventListener("click", closeAiImageModal);
+aiModeText.addEventListener("click", () => enterAiMode("text"));
+aiModeImg.addEventListener("click", () => enterAiMode("img"));
+aiBackBtn.addEventListener("click", () => showAiStep("mode"));
 aiImageGenerateBtn.addEventListener("click", generateAiImage);
+
+// Settings modal
+settingsBtn.addEventListener("click", openSettingsModal);
+settingsOverlay.addEventListener("click", closeSettingsModal);
+settingsCancelBtn.addEventListener("click", closeSettingsModal);
+settingsSaveBtn.addEventListener("click", saveSettings);
+apiKeyToggleBtn.addEventListener("click", toggleApiKeyVisible);
+// If user starts typing on masked field, clear the mask so they overwrite cleanly
+apiKeyInput.addEventListener("focus", () => {
+  if (apiKeyInput.value === API_KEY_MASK) apiKeyInput.value = "";
+});
+aiSourceClearBtn.addEventListener("click", () => setAiSourceImage(null));
+aiSourceUploadBtn.addEventListener("click", () => aiSourceFileInput.click());
+aiSourceFileInput.addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => setAiSourceImage(ev.target.result);
+  reader.readAsDataURL(file);
+  aiSourceFileInput.value = "";
+});
+aiRedrawBtn.addEventListener("click", async () => {
+  const s = sel();
+  if (!s || s.type !== "image" || !s.src) return;
+  if (!(await ensureApiKeyOrGuide())) return;
+  openAiImageModal(s.src);
+});
 aiPromptInput.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
     generateAiImage();

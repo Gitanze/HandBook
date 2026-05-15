@@ -1,7 +1,7 @@
 {
   "name": "handmake-journal",
-  "version": "0.1.0",
-  "description": "Floating scrapbook journal with quick capture and canvas editing.",
+  "version": "0.2.0",
+  "description": "AI 驱动的桌面手账创作工具 — 截图、拼贴、AI 文生图 / 图生图，一键导出 PDF。",
   "main": "main.js",
   "scripts": {
     "start": "electron .",

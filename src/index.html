@@ -199,6 +199,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.2L19 10l-5.1 1.8L12 17l-1.9-5.2L5 10l5.1-1.8L12 3z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/></svg>
           AI
         </button>
+        <button class="tbtn" id="settingsBtn" title="设置 (API Key)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          设置
+        </button>
         <button class="tbtn" id="paperBtn" title="更换纸张背景">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
           换纸
@@ -232,6 +236,10 @@
           </label>
           <button class="ibtn tape-only" id="tapeStyleBrushBtn" title="胶带格式刷">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l1 5-4 4-4-4 1-5z"/><path d="M12 12v9"/><path d="M8 21h8"/><path d="M7 8h10"/></svg>
+          </button>
+          <span class="sep image-only"></span>
+          <button class="ibtn image-only" id="aiRedrawBtn" title="AI 重绘 (基于此图)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 7l1.4 3.6L17 12l-3.6 1.4L12 17l-1.4-3.6L7 12l3.6-1.4L12 7z"/></svg>
           </button>
           <!-- Text typography controls (text items only) -->
           <span class="sep text-only"></span>
@@ -352,24 +360,104 @@
     <!-- AI Image Modal -->
     <div id="aiImageOverlay" class="export-overlay hidden"></div>
     <div id="aiImageModal" class="export-modal ai-image-modal hidden">
-      <h3 class="export-title">AI 生图</h3>
+
+      <!-- Step 1: Mode Selection -->
+      <div id="aiStepMode" class="ai-step">
+        <h3 class="export-title">AI 生图</h3>
+        <div class="ai-mode-grid">
+          <button class="ai-mode-card" id="aiModeText">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="16" y2="12"/><line x1="3" y1="18" x2="12" y2="18"/></svg>
+            <span class="ai-mode-name">文生图</span>
+            <span class="ai-mode-desc">文字描述生成图片</span>
+          </button>
+          <button class="ai-mode-card" id="aiModeImg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span class="ai-mode-name">图生图</span>
+            <span class="ai-mode-desc">参考图片生成新图</span>
+          </button>
+        </div>
+        <div class="export-actions">
+          <button id="aiModeSelectCancelBtn" class="export-btn export-btn-cancel" style="flex:1">取消</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Form -->
+      <div id="aiStepForm" class="ai-step hidden">
+        <div class="ai-form-header">
+          <button class="ai-back-btn" id="aiBackBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="15 18 9 12 15 6"/></svg>
+            返回
+          </button>
+          <h3 class="export-title ai-form-title" id="aiImageTitle">文生图</h3>
+        </div>
+
+        <!-- Source image section (图生图 only) -->
+        <div class="export-section ai-source-section hidden" id="aiSourceSection">
+          <div class="export-section-label">参考图片</div>
+          <div class="ai-source-row">
+            <button class="export-btn ai-upload-btn" id="aiSourceUploadBtn">上传图片</button>
+            <input type="file" id="aiSourceFileInput" accept="image/*" style="display:none"/>
+          </div>
+          <div class="ai-journal-picker hidden" id="aiJournalPicker">
+            <div class="ai-journal-picker-label">从手账选择</div>
+            <div class="ai-journal-grid" id="aiJournalGrid"></div>
+          </div>
+          <div class="ai-source-preview hidden" id="aiSourcePreviewWrap">
+            <img id="aiSourceThumb" alt=""/>
+            <span class="ai-source-tip">将基于此图生成新图</span>
+            <button type="button" class="export-link-btn" id="aiSourceClearBtn">移除</button>
+          </div>
+        </div>
+
+        <div class="export-section">
+          <label class="export-section-label" for="aiPromptInput">提示词</label>
+          <textarea id="aiPromptInput" class="ai-prompt-input" rows="4" maxlength="600" placeholder="描述你想生成的图片"></textarea>
+        </div>
+        <div class="export-section">
+          <label class="export-section-label" for="aiSizeSelect">尺寸</label>
+          <select id="aiSizeSelect" class="ai-size-select">
+            <option value="adaptive">原比例 (自适应)</option>
+            <option value="1024x1024">1:1</option>
+            <option value="1024x1536">2:3</option>
+            <option value="1536x1024">3:2</option>
+            <option value="2048x2048">2K</option>
+          </select>
+        </div>
+        <p id="aiImageStatus" class="export-status"></p>
+        <div class="export-actions">
+          <button id="aiImageCancelBtn" class="export-btn export-btn-cancel">取消</button>
+          <button id="aiImageGenerateBtn" class="export-btn export-btn-ok">生成</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsOverlay" class="export-overlay hidden"></div>
+    <div id="settingsModal" class="export-modal settings-modal hidden">
+      <h3 class="export-title">设置</h3>
       <div class="export-section">
-        <label class="export-section-label" for="aiPromptInput">提示词</label>
-        <textarea id="aiPromptInput" class="ai-prompt-input" rows="5" maxlength="600" placeholder="描述你想生成的图片"></textarea>
+        <label class="export-section-label" for="apiKeyInput">豆包 API Key</label>
+        <div class="settings-key-row">
+          <input id="apiKeyInput" class="settings-input" type="password" placeholder="输入或粘贴 API Key" autocomplete="off"/>
+          <button id="apiKeyToggleBtn" class="settings-eye-btn" type="button" title="显示 / 隐藏">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <p class="settings-tip">仅保存在你的本机（使用系统级加密）。前往 <a href="https://www.volcengine.com/docs/82379" target="_blank" rel="noopener">火山方舟控制台</a> 获取 API Key。</p>
       </div>
       <div class="export-section">
-        <label class="export-section-label" for="aiSizeSelect">尺寸</label>
-        <select id="aiSizeSelect" class="ai-size-select">
-          <option value="1024x1024">1:1</option>
-          <option value="1024x1536">2:3</option>
-          <option value="1536x1024">3:2</option>
-          <option value="2048x2048">2K</option>
-        </select>
+        <label class="export-section-label" for="baseUrlInput">Base URL（可选）</label>
+        <input id="baseUrlInput" class="settings-input" type="text" placeholder="留空使用默认"/>
       </div>
-      <p id="aiImageStatus" class="export-status"></p>
+      <div class="export-section">
+        <label class="export-section-label" for="modelInput">模型（可选）</label>
+        <input id="modelInput" class="settings-input" type="text" placeholder="留空使用默认"/>
+      </div>
+      <p id="settingsStatus" class="export-status"></p>
       <div class="export-actions">
-        <button id="aiImageCancelBtn" class="export-btn export-btn-cancel">取消</button>
-        <button id="aiImageGenerateBtn" class="export-btn export-btn-ok">生成</button>
+        <button id="settingsCancelBtn" class="export-btn export-btn-cancel">取消</button>
+        <button id="settingsSaveBtn" class="export-btn export-btn-ok">保存</button>
       </div>
     </div>
 

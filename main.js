@@ -1,9 +1,10 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, dialog, nativeImage, screen, desktopCapturer, clipboard } = require("electron");
+const { app, BrowserWindow, globalShortcut, ipcMain, dialog, nativeImage, screen, desktopCapturer, clipboard, safeStorage } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
 const STORE_FILE = "journal-state.json";
+const CONFIG_FILE = "config.json";
 const CAPTURE_SHORTCUT = "Shift+Alt+A";
 const DEFAULT_DOUBAO_IMAGE_MODEL = "doubao-seedream-4-0-250828";
 const DEFAULT_DOUBAO_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
@@ -13,6 +14,64 @@ let overlayWindow = null;
 
 function getStorePath() {
   return path.join(app.getPath("userData"), STORE_FILE);
+}
+
+/* ════════════════ User Config (API Key etc.) ════════════════ */
+
+function getConfigPath() {
+  return path.join(app.getPath("userData"), CONFIG_FILE);
+}
+
+function loadUserConfig() {
+  try {
+    const filePath = getConfigPath();
+    if (!fs.existsSync(filePath)) return {};
+    const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    const out = { baseUrl: raw.baseUrl || "", model: raw.model || "", apiKey: "" };
+
+    if (raw.apiKeyEnc && safeStorage.isEncryptionAvailable()) {
+      try {
+        out.apiKey = safeStorage.decryptString(Buffer.from(raw.apiKeyEnc, "base64"));
+      } catch (e) {
+        console.warn("[config] decrypt failed, ignoring stored key:", e.message);
+      }
+    } else if (raw.apiKeyPlain) {
+      out.apiKey = raw.apiKeyPlain;
+    }
+    return out;
+  } catch (e) {
+    console.warn("[config] load failed:", e.message);
+    return {};
+  }
+}
+
+function saveUserConfig(payload) {
+  const filePath = getConfigPath();
+  const cur = (() => {
+    try {
+      return fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, "utf-8")) : {};
+    } catch { return {}; }
+  })();
+
+  const next = { ...cur };
+  if (typeof payload.baseUrl === "string") next.baseUrl = payload.baseUrl.trim();
+  if (typeof payload.model === "string") next.model = payload.model.trim();
+
+  if (typeof payload.apiKey === "string") {
+    const key = payload.apiKey.trim();
+    delete next.apiKeyEnc;
+    delete next.apiKeyPlain;
+    if (key) {
+      if (safeStorage.isEncryptionAvailable()) {
+        next.apiKeyEnc = safeStorage.encryptString(key).toString("base64");
+      } else {
+        next.apiKeyPlain = key;
+      }
+    }
+  }
+
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(next, null, 2), "utf-8");
 }
 
 /* ════════════════ Main Window ════════════════ */
@@ -160,9 +219,14 @@ function saveState(payload) {
 }
 
 function getDoubaoConfig() {
-  const apiKey = process.env.DOUBAO_API_KEY || process.env.ARK_API_KEY || process.env.VOLCENGINE_API_KEY;
-  const baseUrl = (process.env.DOUBAO_BASE_URL || process.env.ARK_BASE_URL || DEFAULT_DOUBAO_BASE_URL).replace(/\/$/, "");
-  const model = process.env.DOUBAO_IMAGE_MODEL || DEFAULT_DOUBAO_IMAGE_MODEL;
+  const user = loadUserConfig();
+  const apiKey = user.apiKey
+    || process.env.DOUBAO_API_KEY
+    || process.env.ARK_API_KEY
+    || process.env.VOLCENGINE_API_KEY
+    || "";
+  const baseUrl = (user.baseUrl || process.env.DOUBAO_BASE_URL || process.env.ARK_BASE_URL || DEFAULT_DOUBAO_BASE_URL).replace(/\/$/, "");
+  const model = user.model || process.env.DOUBAO_IMAGE_MODEL || DEFAULT_DOUBAO_IMAGE_MODEL;
   return { apiKey, baseUrl, model };
 }
 
@@ -182,7 +246,7 @@ async function fetchImageAsDataUrl(url) {
   return `data:${contentType};base64,${buffer.toString("base64")}`;
 }
 
-async function generateDoubaoImage({ prompt, size = "1024x1024" }) {
+async function generateDoubaoImage({ prompt, size = "1024x1024", image = null }) {
   const cleanPrompt = String(prompt || "").trim();
   if (!cleanPrompt) throw new Error("Prompt is required");
 
@@ -195,19 +259,24 @@ async function generateDoubaoImage({ prompt, size = "1024x1024" }) {
   const timeout = setTimeout(() => controller.abort(), 180000);
 
   try {
+    const body = {
+      model,
+      prompt: cleanPrompt,
+      size,
+      response_format: "b64_json",
+      watermark: false
+    };
+    if (image) {
+      body.image = image;
+    }
+
     const response = await fetch(`${baseUrl}/images/generations`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`
       },
-      body: JSON.stringify({
-        model,
-        prompt: cleanPrompt,
-        size,
-        response_format: "b64_json",
-        watermark: false
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal
     });
 
@@ -320,6 +389,27 @@ ipcMain.handle("clipboard:read-image", () => {
 
 ipcMain.handle("ai:generate-image", async (_event, args) => {
   return await generateDoubaoImage(args || {});
+});
+
+/* ════════════════ User Config IPC ════════════════ */
+
+ipcMain.handle("config:get", () => {
+  const cfg = loadUserConfig();
+  return {
+    apiKey: cfg.apiKey || "",
+    baseUrl: cfg.baseUrl || "",
+    model: cfg.model || "",
+    hasKey: !!cfg.apiKey,
+    defaults: {
+      baseUrl: DEFAULT_DOUBAO_BASE_URL,
+      model: DEFAULT_DOUBAO_IMAGE_MODEL
+    }
+  };
+});
+
+ipcMain.handle("config:set", (_event, payload) => {
+  saveUserConfig(payload || {});
+  return true;
 });
 
 // Decode a base64 data URL to a Buffer
