@@ -29,10 +29,10 @@
 
 ## 🚀 快速开始
 
-### 方式 A：下载 .exe 直接用（推荐）
+### 方式 A：下载即用（推荐）
 
-1. 前往 [Releases](https://github.com/Gitanze/HandBook/releases) 下载最新 `Handmake Journal 0.2.0.exe`
-2. 双击运行（**绿色便携版，无需安装、无残留**）
+1. 前往 [Releases](https://github.com/Gitanze/HandBook/releases) 下载最新 `Handmake-Journal-v0.2.0-windows.zip`（约 130 MB）
+2. 右键解压到任意文件夹，双击里面的 `Handmake Journal.exe` 即可运行（**绿色版，无需安装、无残留**）
 3. 第一次点 **AI** 按钮时，会自动弹出「设置」面板 → 粘贴你的豆包 API Key（见下方"获取 API Key"）
 
 ### 方式 B：从源码构建
